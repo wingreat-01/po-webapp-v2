@@ -1236,24 +1236,77 @@
         return DEFAULT_GAS_URL;
       }
     }
+
+    // Session token issued by the backend on successful login.
+    // Stored in sessionStorage so it dies when the tab closes.
+    const _GAS_TOKEN_KEY = 'po_webapp_token_v1';
+    function _getToken() {
+      try { return sessionStorage.getItem(_GAS_TOKEN_KEY) || ''; } catch(e) { return ''; }
+    }
+    function _setToken(t) {
+      try {
+        if (t) sessionStorage.setItem(_GAS_TOKEN_KEY, t);
+        else   sessionStorage.removeItem(_GAS_TOKEN_KEY);
+      } catch(e) {}
+    }
+
+    // Triggered when the backend reports the token is missing/expired.
+    // Clears local session and forces the login gate to reappear.
+    function _handleAuthRequired() {
+      _setToken('');
+      try { sessionStorage.removeItem(SESSION_KEY); } catch(e) {}
+      STATE.currentUser = null;
+      if (typeof _refreshTimer !== 'undefined' && _refreshTimer) {
+        clearInterval(_refreshTimer); _refreshTimer = null;
+      }
+      const gate = document.getElementById('loginGate');
+      if (gate) {
+        gate.style.display = 'flex';
+        const errEl = document.getElementById('loginErr');
+        if (errEl) errEl.textContent = 'Session expired. Please sign in again.';
+        const u = document.getElementById('loginUsername');
+        const p = document.getElementById('loginPassword');
+        if (p) p.value = '';
+        if (u) try { u.focus(); } catch(e) {}
+      }
+    }
+
     var _GAS_READS = { getRows: 1, getUsers: 1, getColVis: 1, getItemCodes: 1, listSheets: 1 };
     function gasRun(action, params) {
       var url = _getGasUrl();
       if (!url) return Promise.reject(new Error('Apps Script URL not configured. Open ⚙ Settings and paste your GAS deployment URL.'));
+
+      // Attach the session token to every call except login itself.
+      var p = Object.assign({}, params || {});
+      if (action !== 'login') {
+        var t = _getToken();
+        if (t) p.token = t;
+      }
+
+      var promise;
       if (_GAS_READS[action]) {
         var qs = 'action=' + encodeURIComponent(action);
-        if (params) Object.keys(params).forEach(function(k) {
-          var v = params[k];
+        Object.keys(p).forEach(function(k) {
+          var v = p[k];
           qs += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(v !== null && v !== undefined ? v : '');
         });
-        return fetch(url + '?' + qs, { redirect: 'follow' }).then(function(r) { return r.json(); });
+        promise = fetch(url + '?' + qs, { redirect: 'follow' }).then(function(r) { return r.json(); });
+      } else {
+        promise = fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify(Object.assign({ action: action }, p)),
+          redirect: 'follow'
+        }).then(function(r) { return r.json(); });
       }
-      return fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify(Object.assign({ action: action }, params || {})),
-        redirect: 'follow'
-      }).then(function(r) { return r.json(); });
+
+      // Intercept auth-required responses globally so every caller doesn't have to.
+      return promise.then(function(res) {
+        if (res && res.authRequired && action !== 'login') {
+          _handleAuthRequired();
+        }
+        return res;
+      });
     }
 
     // Sheet-backed account cache — fetched once per page load from the USERS tab.
@@ -1335,6 +1388,7 @@
             document.getElementById('loginPassword').focus();
             return;
           }
+          if (res.token) _setToken(res.token);
           STATE.currentUser = { username: username, role: res.role };
           setSession(username, res.role);
           document.getElementById('loginGate').style.display = 'none';
@@ -1357,6 +1411,7 @@
     function doLogout() {
       if (!confirm('Sign out of PO WEBAPP?')) return;
       clearSession();
+      _setToken('');
       STATE.currentUser = null;
       Object.keys(STATE.modules).forEach(function (k) {
         const m = STATE.modules[k];

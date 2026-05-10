@@ -49,6 +49,11 @@ function doGet(e) {
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
   var p = e.parameter;
+
+  // All read actions require a valid session token
+  var session = _verifyToken_(p.token);
+  if (!session) return jsonResponse_({ error: 'Auth required', authRequired: true });
+
   var result;
   switch (p.action) {
     case 'getRows':      result = getRows(p.sheetName);   break;
@@ -72,9 +77,23 @@ function doPost(e) {
   try { body = JSON.parse(e.postData.contents); } catch (err) {
     return jsonResponse_({ success: false, error: 'Invalid JSON body' });
   }
+  // login is the only unauthenticated action
+  if (body.action === 'login') {
+    return jsonResponse_(login(body.username, body.password));
+  }
+
+  // All other write actions require a valid session token
+  var session = _verifyToken_(body.token);
+  if (!session) return jsonResponse_({ success: false, error: 'Auth required', authRequired: true });
+
+  // Admin-only writes
+  var ADMIN_ONLY = { saveUser: 1, deleteUser: 1, saveColVis: 1, saveTabConfig: 1 };
+  if (ADMIN_ONLY[body.action] && session.r !== 'admin') {
+    return jsonResponse_({ success: false, error: 'Admin role required', adminRequired: true });
+  }
+
   var result;
   switch (body.action) {
-    case 'login':          result = login(body.username, body.password);                                     break;
     case 'addRow':         result = addRow(body.sheetName, body.data);                                        break;
     case 'updateRow':      result = updateRow(body.sheetName, body.rowIndex, body.data);                      break;
     case 'deleteRow':      result = deleteRow(body.sheetName, body.rowIndex);                                 break;
@@ -333,6 +352,62 @@ function _verifyPassword_(username, password, stored) {
 }
 
 /**
+ * ============ Session tokens (HMAC-signed) ============
+ * Token format: <base64url(payload)>.<base64url(hmac-sha256)>
+ * Payload JSON: { u: username, r: role, exp: epoch_ms }
+ * Secret is generated once and stored in PropertiesService.
+ *
+ * Tokens expire after TOKEN_TTL_MS. To force logout of all sessions, delete
+ * the TOKEN_SECRET property (every existing token then becomes unverifiable).
+ */
+const TOKEN_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+
+function _getTokenSecret_() {
+  const props = PropertiesService.getScriptProperties();
+  let secret = props.getProperty('TOKEN_SECRET');
+  if (!secret) {
+    const seed = String(Math.random()) + ':' + String(Date.now()) + ':' + Utilities.getUuid();
+    secret = Utilities.base64Encode(
+      Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, seed)
+    );
+    props.setProperty('TOKEN_SECRET', secret);
+  }
+  return secret;
+}
+
+function _signToken_(username, role) {
+  const payload = JSON.stringify({
+    u: String(username || '').toLowerCase(),
+    r: role === 'admin' ? 'admin' : 'user',
+    exp: Date.now() + TOKEN_TTL_MS
+  });
+  const sig = Utilities.computeHmacSha256Signature(payload, _getTokenSecret_());
+  const payloadEnc = Utilities.base64EncodeWebSafe(payload).replace(/=+$/, '');
+  const sigEnc = Utilities.base64EncodeWebSafe(sig).replace(/=+$/, '');
+  return payloadEnc + '.' + sigEnc;
+}
+
+function _verifyToken_(token) {
+  try {
+    if (!token || typeof token !== 'string') return null;
+    const parts = String(token).split('.');
+    if (parts.length !== 2) return null;
+    let payloadB64 = parts[0];
+    while (payloadB64.length % 4 !== 0) payloadB64 += '=';
+    const payloadBytes = Utilities.base64DecodeWebSafe(payloadB64);
+    const payloadStr = Utilities.newBlob(payloadBytes).getDataAsString();
+    const expectedSig = Utilities.computeHmacSha256Signature(payloadStr, _getTokenSecret_());
+    const expectedSigB64 = Utilities.base64EncodeWebSafe(expectedSig).replace(/=+$/, '');
+    if (expectedSigB64 !== parts[1]) return null;
+    const payload = JSON.parse(payloadStr);
+    if (!payload || typeof payload.exp !== 'number' || Date.now() > payload.exp) return null;
+    return payload; // { u, r, exp }
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
  * Validates credentials server-side. Returns { ok: true, role } on success,
  * { ok: false, error } on failure. Plaintext passwords found in the USERS
  * sheet are upgraded to hashed form on successful login.
@@ -366,8 +441,12 @@ function login(username, password) {
 
     // Fallback to built-in defaults only when USERS has no entry for this name
     if (!stored) {
-      if (username === 'admin' && password === 'admin1234') return { ok: true, role: 'admin' };
-      if (username === 'user'  && password === 'user1234')  return { ok: true, role: 'user'  };
+      if (username === 'admin' && password === 'admin1234') {
+        return { ok: true, role: 'admin', token: _signToken_(username, 'admin') };
+      }
+      if (username === 'user' && password === 'user1234') {
+        return { ok: true, role: 'user', token: _signToken_(username, 'user') };
+      }
       return { ok: false, error: 'Invalid credentials' };
     }
 
@@ -380,7 +459,7 @@ function login(username, password) {
       try { sheet.getRange(foundRow, 2).setValue(_hashPassword_(username, password)); } catch (e) {}
     }
 
-    return { ok: true, role: role };
+    return { ok: true, role: role, token: _signToken_(username, role) };
   } catch (e) {
     return { ok: false, error: e.toString() };
   }
