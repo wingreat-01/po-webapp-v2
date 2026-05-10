@@ -1232,8 +1232,14 @@
     // ============ GAS API bridge (GitHub Pages → Apps Script REST) =======
     // =====================================================================
     const _GAS_URL_KEY = 'po_webapp_gas_url_v1';
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxp7DIKLDCNTGxfhGFAE9ymRcPFgDiqhK1P8L-PHey2ic9P7qCDpTLsyL22baIAwxu0/exec';
     function _getGasUrl() {
-      try { return (localStorage.getItem(_GAS_URL_KEY) || '').trim(); } catch(e) { return ''; }
+      try {
+        var saved = (localStorage.getItem(_GAS_URL_KEY) || '').trim();
+        return saved || DEFAULT_GAS_URL;
+      } catch (e) {
+        return DEFAULT_GAS_URL;
+      }
     }
     var _GAS_READS = { getRows: 1, getUsers: 1, getColVis: 1, getItemCodes: 1, listSheets: 1 };
     function gasRun(action, params) {
