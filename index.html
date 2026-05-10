@@ -1213,18 +1213,13 @@
     const ACCOUNTS_KEY = 'po_webapp_accounts_v1';
     const SESSION_KEY  = 'po_webapp_session_v1';
 
-    // Local fallback — used when the USERS sheet tab does not exist yet.
+    // Built-in account roles. Login is now validated server-side, so the
+    // client never holds passwords — this is just the role lookup for the
+    // two reserved usernames so the admin user list always shows them.
     function getLocalAccounts() {
-      try {
-        const raw = localStorage.getItem(ACCOUNTS_KEY);
-        if (raw) {
-          const p = JSON.parse(raw);
-          if (p && p.admin && p.user) return p;
-        }
-      } catch (e) {}
       return {
-        admin: { password: 'admin1234', role: 'admin' },
-        user:  { password: 'user1234',  role: 'user'  },
+        admin: { role: 'admin' },
+        user:  { role: 'user'  },
       };
     }
 
@@ -1331,26 +1326,32 @@
       const loginBtn = document.querySelector('.login-btn');
       if (loginBtn) { loginBtn.disabled = true; loginBtn.textContent = 'Signing in…'; }
       errEl.textContent = '';
-      fetchAccounts(function (accounts) {
-        if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = 'Sign In'; }
-        const account = accounts[username];
-        if (!account || account.password !== password) {
-          errEl.textContent = 'Incorrect username or password.';
+      gasRun('login', { username: username, password: password })
+        .then(function (res) {
+          if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = 'Sign In'; }
+          if (!res || !res.ok) {
+            errEl.textContent = (res && res.error) || 'Incorrect username or password.';
+            document.getElementById('loginPassword').value = '';
+            document.getElementById('loginPassword').focus();
+            return;
+          }
+          STATE.currentUser = { username: username, role: res.role };
+          setSession(username, res.role);
+          document.getElementById('loginGate').style.display = 'none';
+          applyRoleUI();
+          loadConfig();
+          switchModule('purchased');
+          startAutoRefresh();
+          fetchItemCodes(function () {});
+          _syncColVisFromSheet();
+          _syncTabConfigFromSheet();
+        })
+        .catch(function (err) {
+          if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = 'Sign In'; }
+          errEl.textContent = 'Login failed: ' + (err.message || err);
           document.getElementById('loginPassword').value = '';
           document.getElementById('loginPassword').focus();
-          return;
-        }
-        STATE.currentUser = { username: username, role: account.role };
-        setSession(username, account.role);
-        document.getElementById('loginGate').style.display = 'none';
-        applyRoleUI();
-        loadConfig();
-        switchModule('purchased');
-        startAutoRefresh();
-        fetchItemCodes(function () {});
-        _syncColVisFromSheet();
-        _syncTabConfigFromSheet();
-      });
+        });
     }
 
     function doLogout() {
@@ -2127,8 +2128,8 @@
         return;
       }
 
-      // Determine if the sign button will be shown (purchased module + SIGNATURE column present)
-      const _sigColHdr = STATE.activeModule === 'purchased'
+      // Determine if the sign button will be shown (purchased/notes module + SIGNATURE column present)
+      const _sigColHdr = (STATE.activeModule === 'purchased' || STATE.activeModule === 'notes')
         ? m.headers.find(function (h) { return h.toUpperCase().replace(/[^A-Z0-9]/g, '') === 'SIGNATURE'; })
         : null;
       const _showSign = !!_sigColHdr;
@@ -3943,11 +3944,9 @@
         if (newAdminPass && newAdminPass.length < 4) { showToast('Admin password must be at least 4 characters', 'error'); return; }
         if (newUserPass  && newUserPass.length  < 4) { showToast('User password must be at least 4 characters',  'error'); return; }
         if (newAdminPass) {
-          if (_accountsCache && _accountsCache.admin) _accountsCache.admin.password = newAdminPass;
           gasRun('saveUser', { username: 'admin', password: newAdminPass, role: 'admin' }).then(function(){}).catch(function(){});
         }
         if (newUserPass) {
-          if (_accountsCache && _accountsCache.user) _accountsCache.user.password = newUserPass;
           gasRun('saveUser', { username: 'user', password: newUserPass, role: 'user' }).then(function(){}).catch(function(){});
         }
       }
@@ -4000,7 +3999,7 @@
           if (_nu) _nu.disabled = false;
           if (_np) _np.disabled = false;
           if (res && res.success) {
-            if (_accountsCache) _accountsCache[username] = { password: password, role: role };
+            if (_accountsCache) _accountsCache[username] = { role: role };
             if (_nu) _nu.value = '';
             if (_np) _np.value = '';
             renderAcctUserList();

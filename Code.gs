@@ -74,6 +74,7 @@ function doPost(e) {
   }
   var result;
   switch (body.action) {
+    case 'login':          result = login(body.username, body.password);                                     break;
     case 'addRow':         result = addRow(body.sheetName, body.data);                                        break;
     case 'updateRow':      result = updateRow(body.sheetName, body.rowIndex, body.data);                      break;
     case 'deleteRow':      result = deleteRow(body.sheetName, body.rowIndex);                                 break;
@@ -290,10 +291,105 @@ function deleteRow(sheetName, rowIndex) {
 }
 
 /**
- * Returns all accounts from the USERS tab as { ok, accounts }.
- * Tab must have headers: username | password | role (row 1).
- * Returns ok:true with empty accounts if the tab exists but has no data rows.
- * Returns ok:false if the tab does not exist (frontend falls back to localStorage).
+ * ============ Password hashing ============
+ * Passwords are stored as 'sha256:<base64-digest>' where the digest is
+ * SHA-256(pepper + ':' + username + ':' + password). The pepper is a random
+ * value generated once and stored in PropertiesService — it never leaves the
+ * server and stays the same across reads/writes.
+ *
+ * Plaintext (legacy) passwords are still accepted on login and migrated to
+ * hashed form automatically on the next successful login.
+ */
+function _getHashPepper_() {
+  const props = PropertiesService.getScriptProperties();
+  let pepper = props.getProperty('PW_PEPPER');
+  if (!pepper) {
+    const seed = String(Math.random()) + ':' + String(Date.now()) + ':' + Utilities.getUuid();
+    pepper = Utilities.base64Encode(
+      Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, seed)
+    );
+    props.setProperty('PW_PEPPER', pepper);
+  }
+  return pepper;
+}
+
+function _hashPassword_(username, password) {
+  const pepper = _getHashPepper_();
+  const bytes = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    pepper + ':' + String(username || '').toLowerCase() + ':' + String(password || '')
+  );
+  return 'sha256:' + Utilities.base64Encode(bytes);
+}
+
+function _verifyPassword_(username, password, stored) {
+  if (!stored) return false;
+  const s = String(stored);
+  if (s.indexOf('sha256:') === 0) {
+    return _hashPassword_(username, password) === s;
+  }
+  // Legacy plaintext compare
+  return s === String(password);
+}
+
+/**
+ * Validates credentials server-side. Returns { ok: true, role } on success,
+ * { ok: false, error } on failure. Plaintext passwords found in the USERS
+ * sheet are upgraded to hashed form on successful login.
+ *
+ * Built-in defaults (admin / admin1234, user / user1234) work only when the
+ * USERS sheet has no row for that username — so the first thing an operator
+ * should do is set real passwords.
+ */
+function login(username, password) {
+  try {
+    username = String(username || '').trim().toLowerCase();
+    password = String(password || '').trim();
+    if (!username || !password) return { ok: false, error: 'Missing credentials' };
+
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('USERS');
+    let stored = null, role = null, foundRow = -1;
+    if (sheet) {
+      const lastRow = sheet.getLastRow();
+      if (lastRow >= 2) {
+        const data = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+        for (let i = 0; i < data.length; i++) {
+          if (String(data[i][0] || '').trim().toLowerCase() === username) {
+            stored   = String(data[i][1] || '');
+            role     = String(data[i][2] || '').trim().toLowerCase() === 'admin' ? 'admin' : 'user';
+            foundRow = i + 2;
+            break;
+          }
+        }
+      }
+    }
+
+    // Fallback to built-in defaults only when USERS has no entry for this name
+    if (!stored) {
+      if (username === 'admin' && password === 'admin1234') return { ok: true, role: 'admin' };
+      if (username === 'user'  && password === 'user1234')  return { ok: true, role: 'user'  };
+      return { ok: false, error: 'Invalid credentials' };
+    }
+
+    if (!_verifyPassword_(username, password, stored)) {
+      return { ok: false, error: 'Invalid credentials' };
+    }
+
+    // Migrate plaintext → hashed on successful login
+    if (stored.indexOf('sha256:') !== 0 && sheet && foundRow > 0) {
+      try { sheet.getRange(foundRow, 2).setValue(_hashPassword_(username, password)); } catch (e) {}
+    }
+
+    return { ok: true, role: role };
+  } catch (e) {
+    return { ok: false, error: e.toString() };
+  }
+}
+
+/**
+ * Returns the list of accounts from the USERS tab — usernames and roles only.
+ * Passwords are NEVER returned, even hashed. Used by the admin Settings panel
+ * to populate the user list and to check name uniqueness.
  */
 function getUsers() {
   try {
@@ -304,9 +400,8 @@ function getUsers() {
     const accounts = {};
     values.forEach(function (row) {
       const username = String(row[0] || '').trim().toLowerCase();
-      const password = String(row[1] || '').trim();
       const role     = String(row[2] || '').trim().toLowerCase();
-      if (username) accounts[username] = { password: password, role: role === 'admin' ? 'admin' : 'user' };
+      if (username) accounts[username] = { role: role === 'admin' ? 'admin' : 'user' };
     });
     return { ok: true, accounts: accounts };
   } catch (e) {
@@ -315,8 +410,8 @@ function getUsers() {
 }
 
 /**
- * Creates or updates a user row in the USERS tab.
- * If the tab does not exist it is created with headers automatically.
+ * Creates or updates a user row in the USERS tab. Passwords are hashed before
+ * storage. If the tab does not exist it is created with headers automatically.
  */
 function saveUser(username, password, role) {
   try {
@@ -324,6 +419,8 @@ function saveUser(username, password, role) {
     password = String(password || '').trim();
     role     = String(role     || '').trim().toLowerCase() === 'admin' ? 'admin' : 'user';
     if (!username || !password) return { success: false, error: 'Username and password are required' };
+
+    const hashed = _hashPassword_(username, password);
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let sheet = ss.getSheetByName('USERS');
@@ -337,12 +434,12 @@ function saveUser(username, password, role) {
       const col = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
       for (let i = 0; i < col.length; i++) {
         if (String(col[i][0] || '').trim().toLowerCase() === username) {
-          sheet.getRange(i + 2, 1, 1, 3).setValues([[username, password, role]]);
+          sheet.getRange(i + 2, 1, 1, 3).setValues([[username, hashed, role]]);
           return { success: true };
         }
       }
     }
-    sheet.appendRow([username, password, role]);
+    sheet.appendRow([username, hashed, role]);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.toString() };
