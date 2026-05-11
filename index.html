@@ -2918,7 +2918,7 @@
     });
     $('colVisBtn').addEventListener('click', function (e) { e.stopPropagation(); openColVisPopover(); });
     $('addBtn').addEventListener('click', function () {
-      if (STATE.activeModule === 'invoice') openBatchInvoiceModal();
+      if (STATE.activeModule === 'invoice' || STATE.activeModule === 'incoming') openBatchModal(STATE.activeModule);
       else openModal('add');
     });
 
@@ -3155,16 +3155,17 @@
     }
 
     // =====================================================================
-    // ============ Batch Invoice Modal ====================================
+    // ============ Batch Add Modal (Invoice + Incoming Shipment) =============
     // =====================================================================
-    function openBatchInvoiceModal() {
-      const m = activeMod();
+    function openBatchModal(moduleId) {
+      const cfg = MODULES[moduleId];
+      const m = STATE.modules[moduleId];
       const headers = m.headers.filter(function (h) {
         const name = String(h || '').trim();
         return name && !HIDDEN_COLUMNS[name.toUpperCase().replace(/[^A-Z0-9]/g, '')];
       });
       if (!headers.length) {
-        showToast('Load invoice data first, then add rows.', 'error');
+        showToast('Load ' + cfg.label + ' data first, then add rows.', 'error');
         return;
       }
 
@@ -3197,10 +3198,11 @@
       let tbHtml = '';
       for (let i = 0; i < INIT_ROWS; i++) tbHtml += rowHtml(i);
 
+      const title = cfg.addLabel + ' &mdash; Batch Entry';
       const html = '<div class="modal-backdrop" id="modalBackdrop">'
         + '<div class="modal" onclick="event.stopPropagation()" style="width:min(96vw,980px);max-width:96vw;position:relative">'
         + '<div class="modal-header">'
-        + '<h3>Add Invoice Rows &mdash; Batch Entry</h3>'
+        + '<h3>' + title + '</h3>'
         + '<button class="modal-close" id="modalClose">&times;</button>'
         + '</div>'
         + '<div class="modal-body" style="padding:0;overflow:auto;flex:1;min-height:0">'
@@ -3271,7 +3273,7 @@
         $('batchAddRowBtn').click();
       });
 
-      $('modalSave').addEventListener('click', function () { submitBatchInvoice(headers); });
+      $('modalSave').addEventListener('click', function () { submitBatch(moduleId, headers); });
 
       (function () {
         var rm = $('modalMount').querySelector('.modal');
@@ -3360,9 +3362,12 @@
       if (first) setTimeout(function () { first.focus(); }, 40);
     }
 
-    function submitBatchInvoice(headers) {
-      const tab = STATE.modules.invoice.invoiceTab || tabFor('invoice');
-      const m   = STATE.modules.invoice;
+    function submitBatch(moduleId, headers) {
+      const cfg = MODULES[moduleId];
+      const tab = moduleId === 'invoice'
+        ? (STATE.modules.invoice.invoiceTab || tabFor('invoice'))
+        : tabFor(moduleId);
+      const m = STATE.modules[moduleId];
 
       // Collect non-empty rows
       const rows = [];
@@ -3395,7 +3400,9 @@
         done++; if (!ok) failed++;
         if (statusEl) statusEl.textContent = done + ' / ' + rows.length + ' saved' + (failed ? ' — ' + failed + ' failed' : '');
         if (done < rows.length) return;
-        const msg = (done - failed) + ' of ' + rows.length + ' invoice row' + (rows.length === 1 ? '' : 's') + ' added';
+        const count = done - failed;
+        const type = cfg.recordType;
+        const msg = count + ' of ' + rows.length + ' ' + type.replace(/s$/, '') + (rows.length === 1 ? '' : 's') + ' added';
         showToast(msg, failed ? 'error' : 'success');
         closeModal();
         silentRefresh();
@@ -3405,7 +3412,7 @@
       rows.forEach(function (data) {
         m.rows.push(Object.assign({ __rowIndex: -(Date.now() % 1e9) }, data));
       });
-      if (STATE.activeModule === 'invoice') applyFiltersAndRender();
+      if (STATE.activeModule === moduleId) applyFiltersAndRender();
 
       rows.forEach(function (data) {
         gasRun('addRow', { sheetName: tab, data: data })
