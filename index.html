@@ -1394,11 +1394,20 @@
           document.getElementById('loginGate').style.display = 'none';
           applyRoleUI();
           loadConfig();
-          switchModule('purchased');
-          startAutoRefresh();
           fetchItemCodes(function () {});
           _syncColVisFromSheet();
-          _syncTabConfigFromSheet();
+          // Non-admins: fetch tab-disabled config from server FIRST so disabled tabs
+          // are enforced immediately — prevents bypass via incognito / fresh session.
+          if (res.role !== 'admin') {
+            _syncTabConfigFromSheet().then(function () {
+              switchModule('purchased');
+              startAutoRefresh();
+            });
+          } else {
+            _syncTabConfigFromSheet();
+            switchModule('purchased');
+            startAutoRefresh();
+          }
         })
         .catch(function (err) {
           if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = 'Sign In'; }
@@ -1620,7 +1629,7 @@
     }
 
     function _syncTabConfigFromSheet() {
-      gasRun('getTabConfig', {})
+      return gasRun('getTabConfig', {})
         .then(function (res) {
           if (!res || !res.ok) return;
           try {
@@ -4375,11 +4384,19 @@
         document.getElementById('loginGate').style.display = 'none';
         applyRoleUI();
         loadConfig();
-        switchModule('purchased');
-        startAutoRefresh();
         fetchItemCodes(function () {});
         _syncColVisFromSheet();
-        _syncTabConfigFromSheet();
+        // Same guard as doLogin: non-admins must have server tab config before accessing modules
+        if (_sess.role !== 'admin') {
+          _syncTabConfigFromSheet().then(function () {
+            switchModule('purchased');
+            startAutoRefresh();
+          });
+        } else {
+          _syncTabConfigFromSheet();
+          switchModule('purchased');
+          startAutoRefresh();
+        }
       } else {
         // Login gate is visible by default; focus username field
         setTimeout(function () {
