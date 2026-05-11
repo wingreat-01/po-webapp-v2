@@ -1011,7 +1011,7 @@
           <button class="pin-cancel" onclick="closePinGate()">Cancel</button>
           <button class="pin-go" onclick="checkPin()">Unlock</button>
         </div>
-        <div class="pin-hint">Default PIN: <strong>1234</strong> &mdash; change in &#9881; Settings</div>
+        <div class="pin-hint">Enter your 4-digit PIN to continue</div>
       </div>
     </div>
 
@@ -1078,11 +1078,11 @@
             <h4>Security</h4>
             <div class="form-field">
               <label>4-digit PIN (protects Settings &amp; Design Mode)</label>
-              <input type="text" id="settingsPin" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="Default: 1234">
+              <input type="text" id="settingsPin" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="Enter new PIN to change">
             </div>
             <div class="settings-info">
-              The PIN is stored in this browser only (localStorage). If you forget it,
-              clear your browser's site data for this app to reset to <strong>1234</strong>.
+              The PIN is stored in this browser only. Leave blank to keep the current PIN.
+              If you forget it, clear your browser&rsquo;s site data for this app to reset to the default.
             </div>
           </div>
 
@@ -1393,7 +1393,7 @@
           setSession(username, res.role);
           document.getElementById('loginGate').style.display = 'none';
           applyRoleUI();
-          loadConfig();
+          loadConfig(); _migratePinIfNeeded();
           fetchItemCodes(function () {});
           _syncColVisFromSheet();
           // Non-admins: fetch tab-disabled config from server FIRST so disabled tabs
@@ -3876,6 +3876,26 @@
     // =====================================================================
     // ============ PIN GATE (adapted from JHONG) ==========================
     // =====================================================================
+    const _PIN_HASH_RE = /^[0-9a-f]{64}$/;
+
+    function _pinHash(pin) {
+      if (!window.crypto || !crypto.subtle) return Promise.resolve(null);
+      return crypto.subtle.digest('SHA-256', new TextEncoder().encode('po_webapp_pin:' + pin))
+        .then(function (buf) {
+          return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+        });
+    }
+
+    function _migratePinIfNeeded() {
+      const p = STATE.config.pin;
+      if (!p || _PIN_HASH_RE.test(p)) return; // already a hash or empty
+      _pinHash(p).then(function (h) {
+        if (!h) return;
+        STATE.config.pin = h;
+        persistConfig();
+      }).catch(function () {});
+    }
+
     let _pinOnSuccess = null;
     let _pinExpected  = null;
 
@@ -3904,16 +3924,27 @@
     }
     function checkPin() {
       const v = ($('pinInput').value || '').trim();
-      const expected = (_pinExpected || STATE.config.pin || '1234').trim();
       if (v.length !== 4) { $('pinErr').textContent = 'PIN must be 4 digits'; return; }
-      if (v === expected) {
-        const cb = _pinOnSuccess;
-        _pinOnSuccess = null; _pinExpected = null;
-        $('pinGate').style.display = 'none';
-        if (typeof cb === 'function') { try { cb(); } catch (e) { console.warn(e); } }
+      const stored = STATE.config.pin || '1234';
+
+      function _apply(matched) {
+        if (matched) {
+          const cb = _pinOnSuccess;
+          _pinOnSuccess = null; _pinExpected = null;
+          $('pinGate').style.display = 'none';
+          if (typeof cb === 'function') { try { cb(); } catch (e) { console.warn(e); } }
+        } else {
+          $('pinErr').textContent = 'Wrong PIN — try again';
+          const inp = $('pinInput'); if (inp) { inp.value = ''; inp.focus(); }
+        }
+      }
+
+      if (_PIN_HASH_RE.test(stored)) {
+        _pinHash(v)
+          .then(function (h) { _apply(h !== null ? h === stored : v === '1234'); })
+          .catch(function () { _apply(false); });
       } else {
-        $('pinErr').textContent = 'Wrong PIN — try again';
-        const inp = $('pinInput'); if (inp) { inp.value = ''; inp.focus(); }
+        _apply(v === stored);
       }
     }
 
@@ -3976,7 +4007,7 @@
       const resolvedPO = tabFor('purchased');
       $('tab_purchased').placeholder = resolvedPO;
       $('settingsPOResolved').textContent = 'Currently linked to: ' + resolvedPO;
-      $('settingsPin').value   = STATE.config.pin            || '';
+      $('settingsPin').value   = ''; // never show the stored hash — leave blank to keep current PIN
       $('settingsTestResult').style.display = 'none';
       $('settingsSheetInfo').textContent = 'Loading available tabs...';
       // Module availability — admin only
@@ -4031,8 +4062,6 @@
       STATE.config.tabs.invoice   = ($('tab_invoice').value   || '').trim();
       const pin = ($('settingsPin').value || '').replace(/[^0-9]/g, '').slice(0, 4);
       if (pin && pin.length !== 4) { showToast('PIN must be exactly 4 digits', 'error'); return; }
-      if (pin.length === 4) STATE.config.pin = pin;
-      persistConfig();
       // Account password changes — admin only, persisted to the USERS sheet
       if (isAdmin()) {
         const newAdminPass = (($('settingsAdminPass') && $('settingsAdminPass').value) || '').trim();
@@ -4046,11 +4075,23 @@
           gasRun('saveUser', { username: 'user', password: newUserPass, role: 'user' }).then(function(){}).catch(function(){});
         }
       }
-      showToast('Settings saved — reloading data', 'success');
-      // invalidate all module caches and reload the active one
-      Object.keys(STATE.modules).forEach(function (k) { STATE.modules[k].loaded = false; });
-      closeSettingsPanel();
-      loadActiveModule();
+
+      function _finishSave(hashedPin) {
+        if (hashedPin) STATE.config.pin = hashedPin;
+        persistConfig();
+        showToast('Settings saved — reloading data', 'success');
+        Object.keys(STATE.modules).forEach(function (k) { STATE.modules[k].loaded = false; });
+        closeSettingsPanel();
+        loadActiveModule();
+      }
+
+      if (pin.length === 4) {
+        _pinHash(pin)
+          .then(function (h) { _finishSave(h || pin); })
+          .catch(function ()  { _finishSave(pin); });
+      } else {
+        _finishSave(null);
+      }
     }
 
     function renderAcctUserList() {
@@ -4411,7 +4452,7 @@
         STATE.currentUser = { username: _sess.username, role: _sess.role };
         document.getElementById('loginGate').style.display = 'none';
         applyRoleUI();
-        loadConfig();
+        loadConfig(); _migratePinIfNeeded();
         fetchItemCodes(function () {});
         _syncColVisFromSheet();
         // Same guard as doLogin: non-admins must have server tab config before accessing modules
