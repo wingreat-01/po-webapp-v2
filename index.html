@@ -1650,6 +1650,10 @@
           existing.remove();
         }
       });
+      // If non-admin is currently viewing a tab that just became disabled, redirect them
+      if (!isAdmin() && tabDisabledConfig[STATE.activeModule]) {
+        showTabDisabledPage(STATE.activeModule);
+      }
     }
 
     function saveColVis() {
@@ -4297,6 +4301,7 @@
     }
 
     function silentRefresh() {
+      _syncTabConfigFromSheet(); // keep tab-disabled state in sync for all logged-in devices
       if (STATE.activeModule === 'invoice') {
         const _im = STATE.modules.invoice;
         if (_im.invoiceTab) silentRefreshInvoiceSubTab(_im.invoiceTab);
