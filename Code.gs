@@ -56,7 +56,20 @@ function doGet(e) {
 
   var result;
   switch (p.action) {
-    case 'getRows':      result = getRows(p.sheetName);   break;
+    case 'getRows':
+      // Server-side module access check — cannot be bypassed by any client
+      if (session.r !== 'admin' && p.moduleId) {
+        var _tabCfg = getTabConfig();
+        if (_tabCfg.ok) {
+          try {
+            if (JSON.parse(_tabCfg.value || '{}')[p.moduleId]) {
+              return jsonResponse_({ error: 'Module not available', disabled: true });
+            }
+          } catch (e) {}
+        }
+      }
+      result = getRows(p.sheetName);
+      break;
     case 'getUsers':     result = getUsers();             break;
     case 'getColVis':    result = getColVis();            break;
     case 'getTabConfig': result = getTabConfig();         break;

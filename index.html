@@ -1890,10 +1890,14 @@
         }
       }, 12000);
 
-      gasRun('getRows', { sheetName: tab })
+      gasRun('getRows', { sheetName: tab, moduleId: moduleId })
         .then(function (result) {
           clearTimeout(watchdog);
           m.loading = false;
+          if (result && result.disabled) {
+            showTabDisabledPage(moduleId);
+            return;
+          }
           if (result && result.error) {
             m.error = result.error;
             $('tableContainer').innerHTML =
@@ -2005,9 +2009,13 @@
         renderInvoiceTabBar();
       }
 
-      gasRun('getRows', { sheetName: tabName })
+      gasRun('getRows', { sheetName: tabName, moduleId: 'invoice' })
         .then(function (result) {
           m.loading = false;
+          if (result && result.disabled) {
+            if (STATE.activeModule === 'invoice') showTabDisabledPage('invoice');
+            return;
+          }
           if (result && result.error) {
             if (STATE.activeModule === 'invoice' && m.invoiceTab === tabName) {
               $('tableContainer').innerHTML = '<div class="empty-state"><strong>Sheet error:</strong><br>'
@@ -2048,10 +2056,10 @@
       const _c = m.subTabData[tabName];
       if (_c && Date.now() - (_c.cachedAt || 0) < 30000) return; // cache is fresh — skip
       const seq = _fetchSeq;
-      gasRun('getRows', { sheetName: tabName })
+      gasRun('getRows', { sheetName: tabName, moduleId: 'invoice' })
         .then(function (result) {
           if (seq !== _fetchSeq) return; // stale — a save happened after this fetch started
-          if (!result || result.error) return;
+          if (!result || result.error || result.disabled) return;
           const headers = result.headers || [];
           const rows = result.rows || [];
           m.subTabData[tabName] = { headers: headers, rows: rows, loaded: true, cachedAt: Date.now() };
@@ -4321,10 +4329,10 @@
       const moduleId = STATE.activeModule;
       const tab = tabFor(moduleId);
       const seq = _fetchSeq; // capture — if a save happens before this returns, seq won't match
-      gasRun('getRows', { sheetName: tab })
+      gasRun('getRows', { sheetName: tab, moduleId: moduleId })
         .then(function (result) {
           if (seq !== _fetchSeq) return; // stale response from before a save — discard
-          if (!result || result.error) return;
+          if (!result || result.error || result.disabled) return;
           m.headers = result.headers || [];
           m.rows    = excludeReceived(moduleId, result.headers || [], result.rows || []);
           m.sheetNameActual = result.sheetName || '';
@@ -4342,9 +4350,9 @@
       const m = STATE.modules[targetModuleId];
       if (!m || m.loading) return;
       const tab = tabFor(targetModuleId);
-      gasRun('getRows', { sheetName: tab })
+      gasRun('getRows', { sheetName: tab, moduleId: targetModuleId })
         .then(function (result) {
-          if (!result || result.error) return;
+          if (!result || result.error || result.disabled) return;
           m.headers = result.headers || [];
           m.rows = excludeReceived(targetModuleId, result.headers || [], result.rows || []);
           m.sheetNameActual = result.sheetName || '';
