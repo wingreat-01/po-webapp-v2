@@ -57,14 +57,18 @@ function doGet(e) {
   var result;
   switch (p.action) {
     case 'getRows':
-      // Server-side module access check — cannot be bypassed by any client
-      if (session.r !== 'admin' && p.moduleId) {
+      // Server-side module access check — cannot be bypassed by any client.
+      // Falls back to sheet-name check (_sheets array) when old clients omit moduleId.
+      if (session.r !== 'admin') {
         var _tabCfg = getTabConfig();
         if (_tabCfg.ok) {
           try {
-            if (JSON.parse(_tabCfg.value || '{}')[p.moduleId]) {
-              return jsonResponse_({ error: 'Module not available', disabled: true });
+            var _cfgObj = JSON.parse(_tabCfg.value || '{}');
+            var _disabled = p.moduleId && !!_cfgObj[p.moduleId];
+            if (!_disabled && Array.isArray(_cfgObj._sheets)) {
+              _disabled = _cfgObj._sheets.indexOf(String(p.sheetName || '').trim()) !== -1;
             }
+            if (_disabled) return jsonResponse_({ error: 'Module not available', disabled: true });
           } catch (e) {}
         }
       }
@@ -649,6 +653,9 @@ function getItemCodes() {
  * Returns { ok: true, value: '{}' } if the tab or key doesn't exist yet.
  */
 function getTabConfig() {
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get('tab_config');
+  if (cached) return { ok: true, value: cached };
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('APP_CONFIG');
@@ -658,7 +665,9 @@ function getTabConfig() {
     const data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
     for (let i = 0; i < data.length; i++) {
       if (String(data[i][0]).trim() === 'tab_config') {
-        return { ok: true, value: String(data[i][1] || '{}') };
+        const val = String(data[i][1] || '{}');
+        try { cache.put('tab_config', val, CACHE_TTL_SECONDS); } catch(e) {}
+        return { ok: true, value: val };
       }
     }
     return { ok: true, value: '{}' };
@@ -684,11 +693,13 @@ function saveTabConfig(jsonStr) {
       for (let i = 0; i < keys.length; i++) {
         if (String(keys[i][0]).trim() === 'tab_config') {
           sheet.getRange(i + 2, 2).setValue(jsonStr);
+          try { CacheService.getScriptCache().remove('tab_config'); } catch(e) {}
           return { success: true };
         }
       }
     }
     sheet.appendRow(['tab_config', jsonStr]);
+    try { CacheService.getScriptCache().remove('tab_config'); } catch(e) {}
     return { success: true };
   } catch (e) {
     return { success: false, error: e.toString() };

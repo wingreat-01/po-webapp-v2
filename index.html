@@ -1624,7 +1624,19 @@
 
     function saveTabConfig() {
       try { localStorage.setItem(TAB_DISABLED_KEY, JSON.stringify(tabDisabledConfig)); } catch(e) {}
-      gasRun('saveTabConfig', { jsonStr: JSON.stringify(tabDisabledConfig) }).then(function(){}).catch(function(){});
+      // Build _sheets so the server can enforce by sheet name when old clients omit moduleId
+      const _serverCfg = Object.assign({}, tabDisabledConfig);
+      const _disabledSheets = [];
+      Object.keys(tabDisabledConfig).forEach(function(mid) {
+        if (!tabDisabledConfig[mid]) return;
+        if (mid === 'invoice') {
+          INVOICE_TABS.forEach(function(t) { _disabledSheets.push(t); });
+        } else {
+          _disabledSheets.push(tabFor(mid));
+        }
+      });
+      _serverCfg._sheets = _disabledSheets;
+      gasRun('saveTabConfig', { jsonStr: JSON.stringify(_serverCfg) }).then(function(){}).catch(function(){});
       _applyTabDisabledUI();
     }
 
@@ -1634,6 +1646,7 @@
           if (!res || !res.ok) return;
           try {
             const remote = JSON.parse(res.value || '{}');
+            delete remote._sheets; // server-only field, not stored locally
             if (JSON.stringify(remote) === JSON.stringify(tabDisabledConfig)) return;
             tabDisabledConfig = remote;
             try { localStorage.setItem(TAB_DISABLED_KEY, JSON.stringify(tabDisabledConfig)); } catch(e) {}
