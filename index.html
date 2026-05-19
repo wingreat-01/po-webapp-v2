@@ -3169,7 +3169,7 @@
       const INIT_ROWS   = 5;
 
       // Fields auto-calculated by formula — read-only in batch entry
-      const CALC_FIELDS = { SQM: true, PERROLLPC: true, TOTALUSD: true };
+      const CALC_FIELDS = { SQM: true, PRICEROLLPC: true, TOTALUSD: true };
 
       function cellHtml(h) {
         const key = h.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -3228,7 +3228,7 @@
 
         setVal('SQM',       sqm      ? fmtSqm(sqm)     : '');
         setVal('TOTALUSD',  totalUsd ? fmtUsd(totalUsd) : '');
-        setVal('PERROLLPC', perRoll  ? fmtUsd(perRoll)  : '');
+        setVal('PRICEROLLPC', perRoll  ? fmtUsd(perRoll)  : '');
       }
 
       function rowHtml(idx) {
