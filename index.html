@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0053)file:///C:/Users/WAREHOUSE-PC/Downloads/index_19.html -->
+<!-- saved from url=(0053)file:///C:/Users/WAREHOUSE-PC/Downloads/index_20.html -->
 <html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -3217,13 +3217,18 @@
         const totalUsd = sqm * unitPrice;
         const perRoll  = roll !== 0 ? totalUsd / roll : 0;
 
-        const fmt = function (n) {
-          return parseFloat(n.toFixed(4)).toString();
+        // SQM: 1000 separator, up to 4 decimal places (trims trailing zeros)
+        const fmtSqm = function (n) {
+          return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
+        };
+        // TOTAL USD and PER ROLL/PC: 1000 separator, always 4 decimal places
+        const fmtUsd = function (n) {
+          return n.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
         };
 
-        setVal('SQM',       sqm      ? fmt(sqm)      : '');
-        setVal('TOTALUSD',  totalUsd ? fmt(totalUsd) : '');
-        setVal('PERROLLPC', perRoll  ? fmt(perRoll)  : '');
+        setVal('SQM',       sqm      ? fmtSqm(sqm)     : '');
+        setVal('TOTALUSD',  totalUsd ? fmtUsd(totalUsd) : '');
+        setVal('PERROLLPC', perRoll  ? fmtUsd(perRoll)  : '');
       }
 
       function rowHtml(idx) {
