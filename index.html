@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0053)file:///C:/Users/WAREHOUSE-PC/Downloads/index_22.html -->
+<!-- saved from url=(0053)file:///C:/Users/WAREHOUSE-PC/Downloads/index_28.html -->
 <html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -3169,7 +3169,7 @@
       const INIT_ROWS   = 5;
 
       // Fields auto-calculated by formula — read-only in batch entry
-      const CALC_FIELDS = { SQM: true, PRICEROLLPC: true, TOTALUSD: true };
+      const CALC_FIELDS = { SQM: true, PERROLLPC: true, TOTALUSD: true };
 
       function cellHtml(h) {
         const key = h.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -3228,7 +3228,7 @@
 
         setVal('SQM',       sqm      ? fmtSqm(sqm)     : '');
         setVal('TOTALUSD',  totalUsd ? fmtUsd(totalUsd) : '');
-        setVal('PRICEROLLPC', perRoll  ? fmtUsd(perRoll)  : '');
+        setVal('PERROLLPC', perRoll  ? fmtUsd(perRoll)  : '');
       }
 
       function rowHtml(idx) {
@@ -3256,6 +3256,20 @@
         + '<table class="batch-table"><thead><tr>' + thHtml + '</tr></thead>'
         + '<tbody id="batchBody">' + tbHtml + '</tbody>'
         + '</table>'
+        + '<div style="display:flex;justify-content:flex-end;align-items:center;gap:18px;padding:10px 16px;border-top:2px solid var(--accent);background:var(--panel-2);">'
+        + '  <div style="display:flex;align-items:center;gap:8px;">'
+        + '    <label for="batchFreight" style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;">Freight:</label>'
+        + '    <input id="batchFreight" type="text" inputmode="decimal" placeholder="0.00" style="width:130px;padding:5px 10px;background:var(--panel);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:13px;font-family:inherit;text-align:right;">'
+        + '  </div>'
+        + '  <div style="display:flex;align-items:center;gap:8px;padding-left:14px;border-left:1px solid var(--border);">'
+        + '    <span style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;">Total USD:</span>'
+        + '    <span id="batchSubtotal" style="font-size:13px;font-weight:600;color:var(--text);min-width:120px;text-align:right;font-family:inherit;">0.0000</span>'
+        + '  </div>'
+        + '  <div style="display:flex;align-items:center;gap:8px;padding-left:14px;border-left:2px solid var(--accent);">'
+        + '    <span style="font-size:13px;font-weight:700;color:var(--success);text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;">Grand Total:</span>'
+        + '    <span id="batchGrandTotal" style="font-size:15px;font-weight:800;color:var(--success);min-width:130px;text-align:right;font-family:inherit;">0.0000</span>'
+        + '  </div>'
+        + '</div>'
         + '</div>'
         + '<div class="modal-footer" style="justify-content:flex-start">'
         + '<button class="btn" id="batchAddRowBtn">+ Add Row</button>'
@@ -3289,10 +3303,35 @@
               if (el.tagName === 'SELECT') el.selectedIndex = 0; else el.value = '';
             });
           }
+          updateBatchTotals();
         };
       }
 
       $('batchBody').querySelectorAll('.batch-row-del').forEach(wireDelBtn);
+
+      // Update the running Total USD + Grand Total in the summary bar
+      function updateBatchTotals() {
+        var subtotal = 0;
+        $('batchBody').querySelectorAll('tr').forEach(function (tr) {
+          tr.querySelectorAll('.batch-cell').forEach(function (c) {
+            const k = (c.dataset.field || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+            if (k === 'TOTALUSD') {
+              // strip commas before parsing (values are formatted with toLocaleString)
+              const v = parseFloat((c.value || '').replace(/,/g, '')) || 0;
+              subtotal += v;
+            }
+          });
+        });
+        const freightRaw = parseFloat(($('batchFreight') ? $('batchFreight').value.replace(/,/g, '') : '') || 0) || 0;
+        const grandTotal = subtotal + freightRaw;
+        const fmt4 = function (n) {
+          return n.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+        };
+        const subEl = $('batchSubtotal');
+        const gtEl  = $('batchGrandTotal');
+        if (subEl) subEl.textContent = fmt4(subtotal);
+        if (gtEl)  gtEl.textContent  = fmt4(grandTotal);
+      }
 
       // Trigger recalculation whenever a source field changes
       $('batchBody').addEventListener('input', function (e) {
@@ -3303,7 +3342,12 @@
           const tr = el.closest('tr');
           if (tr) recalcBatchRow(tr);
         }
+        updateBatchTotals();
       });
+
+      // Wire freight input → update grand total live
+      const freightEl = $('batchFreight');
+      if (freightEl) freightEl.addEventListener('input', updateBatchTotals);
 
       $('batchAddRowBtn').addEventListener('click', function () {
         const tbody = $('batchBody');
