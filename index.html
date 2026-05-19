@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0053)file:///C:/Users/WAREHOUSE-PC/Downloads/index_30.html -->
+<!-- saved from url=(0053)file:///C:/Users/WAREHOUSE-PC/Downloads/index_32.html -->
 <html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -846,8 +846,8 @@
         width: 7px; height: 7px; background: var(--accent, #4a9eff);
         border: 1px solid #fff; border-radius: 1px; cursor: crosshair; z-index: 5;
       }
-      .batch-cell-wrap:focus-within .batch-fill-handle { display: block; }
-      .batch-fill-highlight { background: rgba(74,158,255,0.15) !important; }
+      .batch-fill-handle.visible { display: block; }
+      .batch-fill-highlight { background: rgba(74,158,255,0.15) !important; outline: 1px solid rgba(74,158,255,0.5); }
       .batch-num { width: 28px; text-align: center; color: var(--muted); font-size: 11px; user-select: none; }
       .batch-del-cell { width: 30px; text-align: center; }
       .batch-row-del {
@@ -3178,7 +3178,7 @@
       const INIT_ROWS   = 5;
 
       // Fields auto-calculated by formula — read-only in batch entry
-      const CALC_FIELDS = { SQM: true, PERROLLPC: true, TOTALUSD: true };
+      const CALC_FIELDS = { SQM: true, PRICEROLLPC: true, TOTALUSD: true };
 
       function cellHtml(h) {
         const key = h.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -3237,7 +3237,7 @@
 
         setVal('SQM',       sqm      ? fmtSqm(sqm)     : '');
         setVal('TOTALUSD',  totalUsd ? fmtUsd(totalUsd) : '');
-        setVal('PERROLLPC', perRoll  ? fmtUsd(perRoll)  : '');
+        setVal('PRICEROLLPC', perRoll  ? fmtUsd(perRoll)  : '');
       }
 
       function rowHtml(idx) {
@@ -3265,6 +3265,20 @@
         + '<table class="batch-table"><thead><tr>' + thHtml + '</tr></thead>'
         + '<tbody id="batchBody">' + tbHtml + '</tbody>'
         + '</table>'
+        + '<div style="display:flex;justify-content:flex-end;align-items:center;gap:18px;padding:10px 16px;border-top:2px solid var(--accent);background:var(--panel-2);">'
+        + '<div style="display:flex;align-items:center;gap:8px;">'
+        + '<label for="batchFreight" style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;">Freight:</label>'
+        + '<input id="batchFreight" type="text" inputmode="decimal" placeholder="0.00" style="width:130px;padding:5px 10px;background:var(--panel);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:13px;font-family:inherit;text-align:right;">'
+        + '</div>'
+        + '<div style="display:flex;align-items:center;gap:8px;padding-left:14px;border-left:1px solid var(--border);">'
+        + '<span style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;">Total USD:</span>'
+        + '<span id="batchSubtotal" style="font-size:13px;font-weight:600;color:var(--text);min-width:120px;text-align:right;font-family:inherit;">0.0000</span>'
+        + '</div>'
+        + '<div style="display:flex;align-items:center;gap:8px;padding-left:14px;border-left:2px solid var(--accent);">'
+        + '<span style="font-size:13px;font-weight:700;color:var(--success);text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;">Grand Total:</span>'
+        + '<span id="batchGrandTotal" style="font-size:15px;font-weight:800;color:var(--success);min-width:130px;text-align:right;font-family:inherit;">0.00</span>'
+        + '</div>'
+        + '</div>'
         + '</div>'
         + '<div class="modal-footer" style="justify-content:flex-start">'
         + '<button class="btn" id="batchAddRowBtn">+ Add Row</button>'
@@ -3298,6 +3312,7 @@
               if (el.tagName === 'SELECT') el.selectedIndex = 0; else el.value = '';
             });
           }
+          updateBatchTotals();
         };
       }
 
@@ -3312,39 +3327,66 @@
           const tr = el.closest('tr');
           if (tr) recalcBatchRow(tr);
         }
+        updateBatchTotals();
       });
+
+      // ── Running totals ─────────────────────────────────────────────────────
+      function updateBatchTotals() {
+        var subtotal = 0;
+        $('batchBody').querySelectorAll('tr').forEach(function (tr) {
+          tr.querySelectorAll('.batch-cell').forEach(function (c) {
+            if ((c.dataset.field || '').toUpperCase().replace(/[^A-Z0-9]/g, '') === 'TOTALUSD') {
+              subtotal += parseFloat((c.value || '').replace(/,/g, '')) || 0;
+            }
+          });
+        });
+        var freight = parseFloat((($('batchFreight') || {}).value || '').replace(/,/g, '')) || 0;
+        var grandTotal = subtotal + freight;
+        var fmt4 = function (n) { return n.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 }); };
+        var fmt2 = function (n) { return n.toLocaleString('en-US', { minimumFractionDigits: 2,  maximumFractionDigits: 2  }); };
+        var subEl = $('batchSubtotal'), gtEl = $('batchGrandTotal');
+        if (subEl) subEl.textContent = fmt4(subtotal);
+        if (gtEl)  gtEl.textContent  = fmt2(grandTotal);
+      }
+      var freightEl = $('batchFreight');
+      if (freightEl) freightEl.addEventListener('input', updateBatchTotals);
 
       // ── Excel-style drag-fill ──────────────────────────────────────────────
       (function () {
-        var dragSrc = null;   // source <input>
-        var dragField = null; // data-field string
-        var fillTrs = [];     // rows being highlighted
+        var dragSrc = null, dragField = null, fillTrs = [];
+
+        // Show/hide handle via JS focusin/focusout — reliable across all browsers
+        $('batchBody').addEventListener('focusin', function (e) {
+          var el = e.target;
+          if (!el || !el.classList.contains('batch-cell') || el.readOnly) return;
+          var wrap = el.parentElement;
+          if (wrap && wrap.classList.contains('batch-cell-wrap')) {
+            var h = wrap.querySelector('.batch-fill-handle');
+            if (h) h.classList.add('visible');
+          }
+        });
+        $('batchBody').addEventListener('focusout', function (e) {
+          setTimeout(function () {
+            if (dragSrc) return; // keep visible mid-drag
+            var el = e.target;
+            if (!el) return;
+            var wrap = el.parentElement;
+            if (wrap && wrap.classList.contains('batch-cell-wrap')) {
+              var h = wrap.querySelector('.batch-fill-handle');
+              if (h) h.classList.remove('visible');
+            }
+          }, 120);
+        });
 
         function allRows() { return Array.from($('batchBody').querySelectorAll('tr')); }
-
-        function cellInRow(tr, field) {
-          return tr.querySelector('.batch-cell[data-field="' + field + '"]');
-        }
-
+        function cellInRow(tr, field) { return tr.querySelector('.batch-cell[data-field="' + field + '"]'); }
         function clearHighlight() {
-          fillTrs.forEach(function (tr) {
-            var c = cellInRow(tr, dragField);
-            if (c) c.classList.remove('batch-fill-highlight');
-          });
+          fillTrs.forEach(function (tr) { var c = cellInRow(tr, dragField); if (c) c.classList.remove('batch-fill-highlight'); });
           fillTrs = [];
         }
 
-        function applyFill(targetTrs, value) {
-          targetTrs.forEach(function (tr) {
-            var c = cellInRow(tr, dragField);
-            if (!c || c.readOnly) return;
-            c.value = value;
-            c.dispatchEvent(new Event('input', { bubbles: true }));
-          });
-        }
-
         $('batchBody').addEventListener('mousedown', function (e) {
-          var handle = e.target.closest('.batch-fill-handle');
+          var handle = e.target.closest ? e.target.closest('.batch-fill-handle') : null;
           if (!handle) return;
           e.preventDefault();
           var wrap = handle.closest('.batch-cell-wrap');
@@ -3359,9 +3401,7 @@
           if (!dragSrc) return;
           clearHighlight();
           var rows = allRows();
-          var srcTr = dragSrc.closest('tr');
-          var srcIdx = rows.indexOf(srcTr);
-          // find which row the cursor is over
+          var srcIdx = rows.indexOf(dragSrc.closest('tr'));
           var overIdx = srcIdx;
           rows.forEach(function (tr, i) {
             var rect = tr.getBoundingClientRect();
@@ -3369,19 +3409,24 @@
           });
           if (overIdx <= srcIdx) { fillTrs = []; return; }
           fillTrs = rows.slice(srcIdx + 1, overIdx + 1);
-          fillTrs.forEach(function (tr) {
-            var c = cellInRow(tr, dragField);
-            if (c && !c.readOnly) c.classList.add('batch-fill-highlight');
-          });
+          fillTrs.forEach(function (tr) { var c = cellInRow(tr, dragField); if (c && !c.readOnly) c.classList.add('batch-fill-highlight'); });
         });
 
         document.addEventListener('mouseup', function () {
           if (!dragSrc) return;
-          if (fillTrs.length) applyFill(fillTrs, dragSrc.value);
+          if (fillTrs.length) {
+            var val = dragSrc.value;
+            fillTrs.forEach(function (tr) {
+              var c = cellInRow(tr, dragField);
+              if (!c || c.readOnly) return;
+              c.value = val;
+              c.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+          }
           clearHighlight();
-          dragSrc = null;
-          dragField = null;
-          fillTrs = [];
+          var wrap = dragSrc.parentElement;
+          if (wrap) { var h = wrap.querySelector('.batch-fill-handle'); if (h) h.classList.remove('visible'); }
+          dragSrc = null; dragField = null; fillTrs = [];
           document.body.style.cursor = '';
           document.body.style.userSelect = '';
         });
