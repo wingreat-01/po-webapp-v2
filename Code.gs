@@ -794,25 +794,50 @@ function getImageData(imageId) {
 
     const sheet = _getImagesIndexSheet_();
     const lastRow = sheet.getLastRow();
-    if (lastRow < 2) return { ok: false, error: 'Image not found' };
+    if (lastRow < 2) return { ok: false, error: 'Index sheet is empty — no images recorded' };
     const data = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
 
     for (let i = 0; i < data.length; i++) {
       if (String(data[i][0] || '').trim() === imageId) {
-        const fileId  = String(data[i][5] || '').trim();
-        const name    = String(data[i][3] || '');
-        const mimeType= String(data[i][4] || 'image/png');
-        if (!fileId) return { ok: false, error: 'No Drive file ID recorded' };
-        const file   = DriveApp.getFileById(fileId);
+        const fileId   = String(data[i][5] || '').trim();
+        const name     = String(data[i][3] || '');
+        const mimeType = String(data[i][4] || 'image/png');
+
+        if (!fileId) {
+          return { ok: false, error: 'No Drive file ID for this image — it was uploaded before Drive was authorized. Please delete and re-upload this image.' };
+        }
+
+        let file;
+        try {
+          file = DriveApp.getFileById(fileId);
+        } catch (driveErr) {
+          return { ok: false, error: 'Drive file not found (ID: ' + fileId + '). It may have been deleted from Drive. Error: ' + driveErr.toString() };
+        }
+
         const bytes  = file.getBlob().getBytes();
         const base64 = Utilities.base64Encode(bytes);
         return { ok: true, base64: base64, mimeType: mimeType, name: name };
       }
     }
-    return { ok: false, error: 'Image "' + imageId + '" not found in index' };
+    return { ok: false, error: 'Image ID "' + imageId + '" not found in index sheet' };
   } catch (e) {
     return { ok: false, error: e.toString() };
   }
+}
+
+/**
+ * Debug helper — run this from the Apps Script editor to inspect the image index.
+ * Check the Logs (View > Logs) after running.
+ */
+function debugImageIndex() {
+  const sheet = _getImagesIndexSheet_();
+  const lastRow = sheet.getLastRow();
+  Logger.log('PERSONAL_NOTES_IMAGES rows: ' + (lastRow - 1));
+  if (lastRow < 2) { Logger.log('No images recorded.'); return; }
+  const data = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
+  data.forEach(function (row, i) {
+    Logger.log('Row ' + (i+2) + ': imageId=' + row[0] + ' | sheet=' + row[1] + ' | rowIndex=' + row[2] + ' | file=' + row[3] + ' | mime=' + row[4] + ' | driveFileId=' + (row[5] ? row[5] : '*** EMPTY ***'));
+  });
 }
 
 /**
