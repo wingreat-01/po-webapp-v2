@@ -79,6 +79,7 @@ function doGet(e) {
     case 'getTabConfig': result = getTabConfig();         break;
     case 'getItemCodes': result = getItemCodes();         break;
     case 'listSheets':   result = listSheets();           break;
+    case 'getImages':    result = getImages(p.sheetName, p.rowIndex); break;
     default:             result = { error: 'Unknown action: ' + p.action };
   }
   return jsonResponse_(result);
@@ -119,6 +120,8 @@ function doPost(e) {
     case 'deleteUser':     result = deleteUser(body.username);                                                break;
     case 'saveColVis':     result = saveColVis(body.jsonStr);                                                 break;
     case 'saveTabConfig':  result = saveTabConfig(body.jsonStr);                                              break;
+    case 'saveImage':      result = saveImage(body.sheetName, body.rowIndex, body.name, body.base64, body.mimeType); break;
+    case 'deleteImage':    result = deleteImage(body.imageId);                                                break;
     default:               result = { success: false, error: 'Unknown action: ' + body.action };
   }
   return jsonResponse_(result);
@@ -700,6 +703,142 @@ function saveTabConfig(jsonStr) {
     }
     sheet.appendRow(['tab_config', jsonStr]);
     try { CacheService.getScriptCache().remove('tab_config'); } catch(e) {}
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
+// =====================================================================
+// ============ Personal Notes — Image Attachments =====================
+// =====================================================================
+// Images are stored in Google Drive inside a folder named
+// "PO_WEBAPP_IMAGES". Each image file is named:
+//   <sheetName>__row<rowIndex>__<uuid>__<originalName>
+// A reference row is appended to the "PERSONAL_NOTES_IMAGES" tab with:
+//   [imageId, sheetName, rowIndex, fileName, mimeType, driveUrl, createdAt]
+//
+// getImages  — returns all images for a given sheet + row
+// saveImage  — uploads base64 image to Drive, records in index sheet
+// deleteImage — removes Drive file and index row
+
+const IMAGES_INDEX_SHEET = 'PERSONAL_NOTES_IMAGES';
+const IMAGES_DRIVE_FOLDER = 'PO_WEBAPP_IMAGES';
+
+function _getImagesFolder_() {
+  const folders = DriveApp.getFoldersByName(IMAGES_DRIVE_FOLDER);
+  if (folders.hasNext()) return folders.next();
+  return DriveApp.createFolder(IMAGES_DRIVE_FOLDER);
+}
+
+function _getImagesIndexSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(IMAGES_INDEX_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(IMAGES_INDEX_SHEET);
+    sheet.appendRow(['imageId', 'sheetName', 'rowIndex', 'fileName', 'mimeType', 'driveUrl', 'createdAt']);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+/**
+ * Returns all images for a specific sheet tab + row.
+ * Response: { ok: true, images: [{ id, name, url, mimeType }] }
+ */
+function getImages(sheetName, rowIndex) {
+  try {
+    sheetName = String(sheetName || '').trim();
+    rowIndex  = String(rowIndex  || '').trim();
+    const sheet = _getImagesIndexSheet_();
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return { ok: true, images: [] };
+    const data = sheet.getRange(2, 1, lastRow - 1, 7).getValues();
+    const images = [];
+    data.forEach(function (row) {
+      if (String(row[1] || '').trim() === sheetName &&
+          String(row[2] || '').trim() === rowIndex  &&
+          String(row[0] || '').trim()) {
+        images.push({
+          id:       String(row[0]),
+          name:     String(row[3] || ''),
+          url:      String(row[5] || ''),
+          mimeType: String(row[4] || ''),
+        });
+      }
+    });
+    return { ok: true, images: images };
+  } catch (e) {
+    return { ok: false, error: e.toString() };
+  }
+}
+
+/**
+ * Saves a base64-encoded image to Google Drive and records it in the index sheet.
+ * Response: { success: true, imageId, url }
+ */
+function saveImage(sheetName, rowIndex, fileName, base64Data, mimeType) {
+  try {
+    sheetName  = String(sheetName  || '').trim();
+    rowIndex   = String(rowIndex   || '').trim();
+    fileName   = String(fileName   || 'image').replace(/[^\w.\-]/g, '_');
+    mimeType   = String(mimeType   || 'image/png').trim();
+    if (!base64Data) return { success: false, error: 'No image data provided' };
+
+    const folder  = _getImagesFolder_();
+    const imageId = Utilities.getUuid();
+    const driveName = sheetName + '__row' + rowIndex + '__' + imageId + '__' + fileName;
+
+    const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, driveName);
+    const file = folder.createFile(blob);
+    // Make the file publicly readable so the frontend can display it via <img src>
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    // Build a direct-display URL (works as <img src> without extra auth)
+    const fileId = file.getId();
+    const url = 'https://drive.google.com/uc?export=view&id=' + fileId;
+
+    const indexSheet = _getImagesIndexSheet_();
+    indexSheet.appendRow([
+      imageId, sheetName, rowIndex, fileName, mimeType, url,
+      Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss')
+    ]);
+
+    return { success: true, imageId: imageId, url: url };
+  } catch (e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
+/**
+ * Deletes an image from Drive and removes its index row.
+ * Response: { success: true }
+ */
+function deleteImage(imageId) {
+  try {
+    imageId = String(imageId || '').trim();
+    if (!imageId) return { success: false, error: 'imageId required' };
+
+    const indexSheet = _getImagesIndexSheet_();
+    const lastRow = indexSheet.getLastRow();
+    if (lastRow < 2) return { success: false, error: 'Image not found' };
+
+    const data = indexSheet.getRange(2, 1, lastRow - 1, 6).getValues();
+    let found = false;
+    for (let i = data.length - 1; i >= 0; i--) {
+      if (String(data[i][0] || '').trim() === imageId) {
+        // Try to delete the Drive file (url contains the file id)
+        try {
+          const url = String(data[i][5] || '');
+          const match = url.match(/[?&]id=([^&]+)/);
+          if (match) DriveApp.getFileById(match[1]).setTrashed(true);
+        } catch (e2) { /* ignore if file already gone */ }
+        indexSheet.deleteRow(i + 2);
+        found = true;
+        break;
+      }
+    }
+    if (!found) return { success: false, error: 'Image "' + imageId + '" not found' };
     return { success: true };
   } catch (e) {
     return { success: false, error: e.toString() };

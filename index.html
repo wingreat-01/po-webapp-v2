@@ -769,6 +769,85 @@
       /* Hint tooltip on remarks fields */
       .form-field textarea[placeholder]::placeholder { color: var(--muted); font-size: 11px; font-style: italic; }
 
+      /* ── Personal Notes image attachment ── */
+      .pn-img-section {
+        margin-top: 18px;
+        padding-top: 14px;
+        border-top: 1px solid var(--border);
+      }
+      .pn-img-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text);
+        margin-bottom: 10px;
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+      }
+      .pn-img-previews {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+      .pn-img-thumb {
+        position: relative;
+        width: 90px;
+        height: 90px;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 2px solid var(--border);
+        background: var(--panel-2);
+        flex-shrink: 0;
+      }
+      .pn-img-thumb img {
+        width: 100%; height: 100%;
+        object-fit: cover;
+        display: block;
+        cursor: pointer;
+        transition: opacity .15s;
+      }
+      .pn-img-thumb img:hover { opacity: .85; }
+      .pn-img-thumb img:active { opacity: .7; }
+      .pn-img-del {
+        position: absolute; top: 3px; right: 3px;
+        width: 20px; height: 20px;
+        background: rgba(220,50,50,.85);
+        color: #fff; border: none; border-radius: 50%;
+        font-size: 13px; line-height: 1; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        padding: 0;
+      }
+      .pn-img-del:hover { background: #cc2222; }
+      .pn-img-pending { border-color: var(--accent-2); }
+      .pn-img-pending-badge {
+        position: absolute; bottom: 0; left: 0; right: 0;
+        background: rgba(0,0,0,.6); color: #fff;
+        font-size: 9px; text-align: center; padding: 2px 0;
+        letter-spacing: .3px;
+      }
+      .pn-img-upload-btn {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 7px 14px; border-radius: 6px;
+        background: var(--panel-2); color: var(--text);
+        border: 1px solid var(--border);
+        font-size: 12px; font-weight: 600; cursor: pointer;
+        transition: background .15s, border-color .15s;
+      }
+      .pn-img-upload-btn:hover { background: var(--panel); border-color: var(--accent); }
+      /* Table cell thumbnail strip */
+      .pn-img-strip { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
+      .pn-img-strip-thumb {
+        width: 38px; height: 38px; border-radius: 4px;
+        object-fit: cover; border: 1px solid var(--border);
+        cursor: pointer;
+      }
+      .pn-img-strip-more {
+        width: 38px; height: 38px; border-radius: 4px;
+        background: var(--panel-2); border: 1px solid var(--border);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 10px; color: var(--muted); cursor: pointer;
+      }
+
       /* ============ Shipment Selector Bar ============ */
       .shipment-bar {
         display: flex; align-items: center; gap: 10px;
@@ -947,6 +1026,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"></rect><path d="M9 7h6M9 11h6M9 15h4"></path></svg>
             Invoice
           </button>
+          <button class="nav-btn" data-module="personalnotes">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            Personal Notes
+          </button>
         </nav>
         <div class="footer-btns">
           <button class="footer-btn settings" id="settingsBtn" onclick="openSettingsWithPin()" title="Settings — protected by 4-digit PIN">
@@ -1096,6 +1179,10 @@
               <label>Invoice tab</label>
               <input type="text" id="tab_invoice" placeholder="INVOICE">
             </div>
+            <div class="form-field">
+              <label>Personal Notes tab</label>
+              <input type="text" id="tab_personalnotes" placeholder="PERSONAL_NOTES">
+            </div>
             <div class="settings-info" id="settingsSheetInfo">Loading available tabs...</div>
             <div class="settings-test-result" id="settingsTestResult"></div>
           </div>
@@ -1187,12 +1274,13 @@
     // ============ MODULE DEFINITIONS =====================================
     // =====================================================================
     const MODULES = {
-      purchased: { label: 'Purchased Order',    title: 'Purchased Orders',    addLabel: 'Add New PO',       recordType: 'orders',    defaultTab: 'PURCHASED_ORDER'  },
-      incoming:  { label: 'Incoming Shipment',  title: 'Incoming Shipments',  addLabel: 'Add New Shipment', recordType: 'shipments', defaultTab: 'INCOMING_SHIPMENT' },
-      samples:   { label: 'Samples',            title: 'Samples',             addLabel: 'Add New Sample',   recordType: 'samples',   defaultTab: 'SAMPLES'           },
-      notes:     { label: 'Notes',              title: 'Notes',               addLabel: 'Add New Note',     recordType: 'notes',     defaultTab: 'NOTES'             },
-      received:  { label: 'Received',           title: 'Received',            addLabel: 'Add New Record',   recordType: 'records',   defaultTab: 'RECEIVED'          },
-      invoice:   { label: 'Invoice',            title: 'Invoices',            addLabel: 'Add New Invoice',  recordType: 'invoices',  defaultTab: 'INVOICE'           },
+      purchased:     { label: 'Purchased Order',    title: 'Purchased Orders',    addLabel: 'Add New PO',           recordType: 'orders',    defaultTab: 'PURCHASED_ORDER'   },
+      incoming:      { label: 'Incoming Shipment',  title: 'Incoming Shipments',  addLabel: 'Add New Shipment',     recordType: 'shipments', defaultTab: 'INCOMING_SHIPMENT'  },
+      samples:       { label: 'Samples',            title: 'Samples',             addLabel: 'Add New Sample',       recordType: 'samples',   defaultTab: 'SAMPLES'            },
+      notes:         { label: 'Notes',              title: 'Notes',               addLabel: 'Add New Note',         recordType: 'notes',     defaultTab: 'NOTES'              },
+      received:      { label: 'Received',           title: 'Received',            addLabel: 'Add New Record',       recordType: 'records',   defaultTab: 'RECEIVED'           },
+      invoice:       { label: 'Invoice',            title: 'Invoices',            addLabel: 'Add New Invoice',      recordType: 'invoices',  defaultTab: 'INVOICE'            },
+      personalnotes: { label: 'Personal Notes',     title: 'Personal Notes',      addLabel: 'Add New Personal Note',recordType: 'notes',     defaultTab: 'PERSONAL_NOTES'    },
     };
 
     const INVOICE_TABS = ['FH', 'HX', '3M-WZ', 'HRS', 'KL', 'JF', 'OTHERS'];
@@ -1218,16 +1306,17 @@
       currentUser: null,  // { username, role: 'admin'|'user' }
       activeModule: 'purchased',
       modules: {
-        purchased: newModuleState(),
-        incoming:  newModuleState(),
-        samples:   newModuleState(),
-        notes:     newModuleState(),
-        received:  newModuleState(),
-        invoice:   newModuleState(),
+        purchased:     newModuleState(),
+        incoming:      newModuleState(),
+        samples:       newModuleState(),
+        notes:         newModuleState(),
+        received:      newModuleState(),
+        invoice:       newModuleState(),
+        personalnotes: newModuleState(),
       },
       config: {
         tabs: {
-          purchased: '', incoming: '', samples: '', notes: '', received: '', invoice: '',
+          purchased: '', incoming: '', samples: '', notes: '', received: '', invoice: '', personalnotes: '',
         },
         pin: '1234',
       },
@@ -1297,7 +1386,7 @@
       }
     }
 
-    var _GAS_READS = { getRows: 1, getUsers: 1, getColVis: 1, getItemCodes: 1, listSheets: 1 };
+    var _GAS_READS = { getRows: 1, getUsers: 1, getColVis: 1, getItemCodes: 1, listSheets: 1, getTabConfig: 1, getImages: 1 };
     function gasRun(action, params) {
       var url = _getGasUrl();
       if (!url) return Promise.reject(new Error('Apps Script URL not configured. Open ⚙ Settings and paste your GAS deployment URL.'));
@@ -2976,7 +3065,9 @@
             formHtml += '<option value="' + escapeHtml(opt) + '"' + sel + '>' + (opt || '— Select status —') + '</option>';
           });
           formHtml += '</select>';
-        } else if (String(v).length > 60 || /note|comment|description|remark/i.test(h)) {
+        } else if (/^remark|^note|^comment/i.test(h.trim()) || /\bremarks?\b|\bnotes?\b|\bcomments?\b/i.test(h)) {
+          formHtml += '<textarea data-field="' + escapeHtml(h) + '" class="remarks-textarea" placeholder="Alt+Enter for new line">' + escapeHtml(v) + '</textarea>';
+        } else if (String(v).length > 60) {
           formHtml += '<textarea data-field="' + escapeHtml(h) + '">' + escapeHtml(v) + '</textarea>';
         } else {
           formHtml += '<input type="text" data-field="' + escapeHtml(h) + '" value="' + escapeHtml(v) + '">';
@@ -2987,6 +3078,19 @@
       const titleText = isEdit ? ('Edit ' + cfg.label) : cfg.addLabel;
       const saveText  = isEdit ? 'Save Changes' : cfg.addLabel;
 
+      // ── Personal Notes: image attachment section ──────────────────────────
+      const _isPN = STATE.activeModule === 'personalnotes';
+      const _pnRowIndex = (isEdit && row) ? row.__rowIndex : null;
+      const _imageSection = _isPN ? (''
+        + '<div class="pn-img-section" id="pnImgSection">'
+        + '  <div class="pn-img-label">📎 Attachments <span style="font-size:11px;color:var(--muted);font-weight:400;">(images only)</span></div>'
+        + '  <div id="pnImgPreviews" class="pn-img-previews"></div>'
+        + '  <label class="pn-img-upload-btn" for="pnImgInput">+ Attach Image</label>'
+        + '  <input type="file" id="pnImgInput" accept="image/*" multiple style="display:none">'
+        + '  <div id="pnImgStatus" style="font-size:11px;color:var(--muted);margin-top:4px;"></div>'
+        + '</div>'
+      ) : '';
+
       const html = ''
         + '<div class="modal-backdrop" id="modalBackdrop">'
         + '  <div class="modal" onclick="event.stopPropagation()">'
@@ -2994,7 +3098,7 @@
         + '      <h3>' + escapeHtml(titleText) + '</h3>'
         + '      <button class="modal-close" id="modalClose">&times;</button>'
         + '    </div>'
-        + '    <div class="modal-body">' + formHtml + '</div>'
+        + '    <div class="modal-body">' + formHtml + _imageSection + '</div>'
         + '    <div class="modal-footer">'
         + '      <button class="btn" id="modalCancel">Cancel</button>'
         + '      <button class="btn btn-primary" id="modalSave">' + escapeHtml(saveText) + '</button>'
@@ -3003,25 +3107,118 @@
         + '</div>';
       $('modalMount').innerHTML = html;
 
-      // Alt+Enter inserts a newline in all textarea fields (remarks / notes / comments)
+      // ── Personal Notes: image logic ───────────────────────────────────────
+      if (_isPN) {
+        var _pnPendingImages = []; // { name, base64, mimeType } — staged for upload on save
+
+        function _pnRenderPreviews(existingImgs) {
+          const wrap = $('pnImgPreviews');
+          if (!wrap) return;
+          wrap.innerHTML = '';
+          // Show already-saved images (edit mode)
+          (existingImgs || []).forEach(function (img) {
+            const div = document.createElement('div');
+            div.className = 'pn-img-thumb';
+            div.innerHTML = '<img src="' + escapeHtml(img.url) + '" alt="' + escapeHtml(img.name) + '" title="' + escapeHtml(img.name) + '">'
+              + '<button class="pn-img-del" data-imgid="' + escapeHtml(img.id) + '" title="Remove">×</button>';
+            div.querySelector('.pn-img-del').addEventListener('click', function () {
+              const imgId = this.dataset.imgid;
+              if (!confirm('Delete this image?')) return;
+              $('pnImgStatus').textContent = 'Deleting…';
+              gasRun('deleteImage', { imageId: imgId }).then(function (res) {
+                if (res && res.success) {
+                  div.remove();
+                  $('pnImgStatus').textContent = 'Image deleted.';
+                  setTimeout(function () { if ($('pnImgStatus')) $('pnImgStatus').textContent = ''; }, 2000);
+                } else {
+                  $('pnImgStatus').textContent = 'Delete failed: ' + (res && res.error ? res.error : 'unknown');
+                }
+              }).catch(function (e) { $('pnImgStatus').textContent = 'Delete error: ' + e.message; });
+            });
+            wrap.appendChild(div);
+          });
+          // Show staged (not yet saved) images
+          _pnPendingImages.forEach(function (img, idx) {
+            const div = document.createElement('div');
+            div.className = 'pn-img-thumb pn-img-pending';
+            div.innerHTML = '<img src="data:' + img.mimeType + ';base64,' + img.base64 + '" alt="' + escapeHtml(img.name) + '" title="' + escapeHtml(img.name) + ' (pending upload)">'
+              + '<button class="pn-img-del" data-pendingidx="' + idx + '" title="Remove">×</button>'
+              + '<span class="pn-img-pending-badge">Pending</span>';
+            div.querySelector('.pn-img-del').addEventListener('click', function () {
+              _pnPendingImages.splice(Number(this.dataset.pendingidx), 1);
+              _pnRenderPreviews(_pnExistingImages);
+            });
+            wrap.appendChild(div);
+          });
+        }
+
+        var _pnExistingImages = [];
+
+        // Load existing images if editing
+        if (_pnRowIndex) {
+          $('pnImgStatus').textContent = 'Loading images…';
+          gasRun('getImages', { rowIndex: String(_pnRowIndex), sheetName: tabFor('personalnotes') })
+            .then(function (res) {
+              if ($('pnImgStatus')) $('pnImgStatus').textContent = '';
+              if (res && res.images) {
+                _pnExistingImages = res.images;
+                _pnRenderPreviews(_pnExistingImages);
+              }
+            })
+            .catch(function () { if ($('pnImgStatus')) $('pnImgStatus').textContent = 'Could not load images.'; });
+        }
+
+        // File picker handler
+        const _pnInput = $('pnImgInput');
+        if (_pnInput) {
+          _pnInput.addEventListener('change', function () {
+            const files = Array.from(this.files);
+            let done = 0;
+            if (!files.length) return;
+            $('pnImgStatus').textContent = 'Reading ' + files.length + ' file(s)…';
+            files.forEach(function (file) {
+              const reader = new FileReader();
+              reader.onload = function (ev) {
+                const dataUrl = ev.target.result; // data:<mime>;base64,<data>
+                const parts = dataUrl.split(',');
+                const mimeType = parts[0].replace('data:', '').replace(';base64', '');
+                const base64 = parts[1];
+                _pnPendingImages.push({ name: file.name, base64: base64, mimeType: mimeType });
+                done++;
+                if (done === files.length) {
+                  $('pnImgStatus').textContent = _pnPendingImages.length + ' image(s) ready — will upload on save.';
+                  _pnRenderPreviews(_pnExistingImages);
+                }
+              };
+              reader.readAsDataURL(file);
+            });
+            this.value = ''; // reset so same file can be re-added
+          });
+        }
+
+        // Expose pending images so the save handler can upload them
+        $('modalMount')._pnPendingImages = _pnPendingImages;
+        $('modalMount')._pnRowIndexRef    = { value: _pnRowIndex };
+        $('modalMount')._pnGetRowIndex    = function () { return $('modalMount')._pnRowIndexRef.value; };
+      }
+      // ─────────────────────────────────────────────────────────────────────
       $('modalMount').addEventListener('keydown', function (e) {
         if (e.key === 'Enter' && e.altKey) {
           const el = e.target;
-          if (el && el.tagName === 'TEXTAREA') {
+          if (el && el.classList.contains('remarks-textarea')) {
             e.preventDefault();
             const start = el.selectionStart;
             const end   = el.selectionEnd;
             el.value = el.value.substring(0, start) + '\n' + el.value.substring(end);
             el.selectionStart = el.selectionEnd = start + 1;
-            // auto-grow the textarea to show the new line
             el.style.height = 'auto';
             el.style.height = (el.scrollHeight + 2) + 'px';
           }
         }
       });
 
-      // Auto-grow textareas on input as well
-      $('modalMount').querySelectorAll('textarea').forEach(function (ta) {
+      // Auto-grow remarks textareas; plain textareas (long values) stay manually resizable
+      $('modalMount').querySelectorAll('textarea.remarks-textarea').forEach(function (ta) {
         ta.style.resize = 'vertical';
         ta.style.minHeight = '72px';
         ta.style.height = 'auto';
@@ -3030,8 +3227,11 @@
           ta.style.height = 'auto';
           ta.style.height = (ta.scrollHeight + 2) + 'px';
         });
-        // Show hint in placeholder area
-        if (!ta.placeholder) ta.placeholder = 'Alt+Enter for new line';
+      });
+      // Non-remarks textareas (long plain-text values) still get basic sizing
+      $('modalMount').querySelectorAll('textarea:not(.remarks-textarea)').forEach(function (ta) {
+        ta.style.resize = 'vertical';
+        ta.style.minHeight = '72px';
       });
 
       _attachEsc(closeModal);
@@ -3042,6 +3242,47 @@
         document.querySelectorAll('[data-field]').forEach(function (inp) {
           data[inp.dataset.field] = inp.value;
         });
+
+        // For personalnotes: save row first, then upload pending images
+        if (STATE.activeModule === 'personalnotes') {
+          const _pending = ($('modalMount')._pnPendingImages || []).slice();
+          const _sheetName = tabFor('personalnotes');
+
+          function _uploadPendingImages(rowIdx) {
+            if (!_pending.length) return;
+            const st = $('pnImgStatus');
+            if (st) st.textContent = 'Uploading ' + _pending.length + ' image(s)…';
+            let done = 0;
+            _pending.forEach(function (img) {
+              gasRun('saveImage', {
+                sheetName: _sheetName,
+                rowIndex:  String(rowIdx),
+                name:      img.name,
+                base64:    img.base64,
+                mimeType:  img.mimeType
+              }).then(function (res) {
+                done++;
+                if (done === _pending.length) {
+                  if (st) st.textContent = 'All images uploaded.';
+                  setTimeout(closeModal, 600);
+                }
+                if (!res || !res.success) showToast('Image upload issue: ' + (res && res.error ? res.error : 'unknown'), 'error');
+              }).catch(function (e) {
+                done++;
+                showToast('Image upload failed: ' + e.message, 'error');
+                if (done === _pending.length) setTimeout(closeModal, 600);
+              });
+            });
+          }
+
+          if (isEdit) {
+            saveEdit(row.__rowIndex, data, saveText, function () { _uploadPendingImages(row.__rowIndex); });
+          } else {
+            saveNew(data, saveText, function (newRowIndex) { _uploadPendingImages(newRowIndex); });
+          }
+          return;
+        }
+
         if (isEdit) saveEdit(row.__rowIndex, data, saveText);
         else        saveNew(data, saveText);
       });
@@ -3246,7 +3487,7 @@
         if (CALC_FIELDS[key]) {
           return '<div class="batch-cell-wrap"><input type="text" class="batch-cell batch-calc" data-field="' + escapeHtml(h) + '" readonly tabindex="-1" style="background:var(--row-hover,#f5f5f5);color:var(--muted,#888);cursor:default;" placeholder="auto"></div>';
         }
-        if (/note|comment|description|remark/i.test(h)) {
+        if (/^remark|^note|^comment/i.test(h.trim()) || /\bremarks?\b|\bnotes?\b|\bcomments?\b/i.test(h)) {
           return '<div class="batch-cell-wrap"><textarea class="batch-cell batch-remarks-ta" data-field="' + escapeHtml(h) + '" placeholder="Alt+Enter for new line" rows="1" style="resize:vertical;min-height:30px;width:100%;padding:4px 6px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:4px;font-family:inherit;font-size:13px;overflow:hidden;box-sizing:border-box;"></textarea><div class="batch-fill-handle" title="Drag to fill down"></div></div>';
         }
         return '<div class="batch-cell-wrap"><input type="text" class="batch-cell" data-field="' + escapeHtml(h) + '"><div class="batch-fill-handle" title="Drag to fill down"></div></div>';
@@ -3715,7 +3956,7 @@
         });
     }
 
-    function saveNew(data, saveText) {
+    function saveNew(data, saveText, onSuccess) {
       const tab = STATE.activeModule === 'invoice' ? (STATE.modules.invoice.invoiceTab || tabFor('invoice')) : tabFor(STATE.activeModule);
       const cfg = activeCfg();
       const m = activeMod();
@@ -3727,14 +3968,26 @@
         .then(function (res) {
           if (res && res.success) {
             showToast(cfg.label + ' added', 'success');
-            closeModal();
+            if (!onSuccess) closeModal();
             // Optimistic insert: add the row immediately with a temp negative index.
             // silentRefresh replaces it with real server data (including the true __rowIndex).
             const tempRow = Object.assign({ __rowIndex: -(Date.now() % 1e9) }, data);
             m.rows.push(tempRow);
             saveCachedData(moduleId, m.headers, m.rows, m.sheetNameActual);
             if (STATE.activeModule === moduleId) applyFiltersAndRender();
-            silentRefresh();
+            if (onSuccess) {
+              // Fetch the real row index by silent-refreshing, then call back
+              gasRun('getRows', { sheetName: tab, moduleId: moduleId })
+                .then(function (r2) {
+                  if (r2 && r2.rows) {
+                    // The new row is the last one
+                    const lastRow = r2.rows[r2.rows.length - 1];
+                    onSuccess(lastRow ? lastRow.__rowIndex : null);
+                  }
+                }).catch(function () { onSuccess(null); });
+            } else {
+              silentRefresh();
+            }
           } else {
             showToast('Failed: ' + (res && res.error ? res.error : 'unknown'), 'error');
             $('modalSave').disabled = false;
@@ -3748,7 +4001,7 @@
         });
     }
 
-    function saveEdit(rowIndex, data, saveText) {
+    function saveEdit(rowIndex, data, saveText, onSuccess) {
       const tab = STATE.activeModule === 'invoice' ? (STATE.modules.invoice.invoiceTab || tabFor('invoice')) : tabFor(STATE.activeModule);
       const cfg = activeCfg();
       const m = activeMod();
@@ -3769,6 +4022,7 @@
       var _saveOnSuccess = function (res) {
         if (res && res.success) {
           showToast(cfg.label + ' updated', 'success');
+          if (onSuccess) onSuccess(rowIndex);
           if (savedStatus === 'Received' && moduleId !== 'received') {
             m.rows = m.rows.filter(function (r) { return r.__rowIndex !== rowIndex; });
             if (STATE.activeModule === moduleId) applyFiltersAndRender();
@@ -4260,6 +4514,7 @@
       $('tab_notes').value     = STATE.config.tabs.notes     || '';
       $('tab_received').value  = STATE.config.tabs.received  || '';
       $('tab_invoice').value   = STATE.config.tabs.invoice   || '';
+      $('tab_personalnotes').value = STATE.config.tabs.personalnotes || '';
       // Surface the currently resolved (active) tab name for Purchased Order
       const resolvedPO = tabFor('purchased');
       $('tab_purchased').placeholder = resolvedPO;
@@ -4317,6 +4572,7 @@
       STATE.config.tabs.notes     = ($('tab_notes').value     || '').trim();
       STATE.config.tabs.received  = ($('tab_received').value  || '').trim();
       STATE.config.tabs.invoice   = ($('tab_invoice').value   || '').trim();
+      STATE.config.tabs.personalnotes = ($('tab_personalnotes').value || '').trim();
       const pin = ($('settingsPin').value || '').replace(/[^0-9]/g, '').slice(0, 4);
       if (pin && pin.length !== 4) { showToast('PIN must be exactly 4 digits', 'error'); return; }
       // Account password changes — admin only, persisted to the USERS sheet
@@ -4435,9 +4691,10 @@
         purchased: ($('tab_purchased').value || '').trim() || MODULES.purchased.defaultTab,
         incoming:  ($('tab_incoming').value  || '').trim() || MODULES.incoming.defaultTab,
         samples:   ($('tab_samples').value   || '').trim() || MODULES.samples.defaultTab,
-        notes:     ($('tab_notes').value     || '').trim() || MODULES.notes.defaultTab,
-        received:  ($('tab_received').value  || '').trim() || MODULES.received.defaultTab,
-        invoice:   ($('tab_invoice').value   || '').trim() || MODULES.invoice.defaultTab,
+        notes:         ($('tab_notes').value     || '').trim() || MODULES.notes.defaultTab,
+        received:      ($('tab_received').value  || '').trim() || MODULES.received.defaultTab,
+        invoice:       ($('tab_invoice').value   || '').trim() || MODULES.invoice.defaultTab,
+        personalnotes: ($('tab_personalnotes').value || '').trim() || MODULES.personalnotes.defaultTab,
       };
       const ids = Object.keys(fields);
       let done = 0;
@@ -4730,6 +4987,32 @@
           if (u) u.focus();
         }, 60);
       }
+    // =====================================================================
+    // ============ Image Lightbox =========================================
+    // =====================================================================
+    function openImageLightbox(src, alt) {
+      const existing = document.getElementById('pnLightbox');
+      if (existing) existing.remove();
+      const lb = document.createElement('div');
+      lb.id = 'pnLightbox';
+      lb.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;cursor:zoom-out;';
+      lb.innerHTML = '<img src="' + escapeHtml(src) + '" alt="' + escapeHtml(alt || '') + '" style="max-width:90vw;max-height:90vh;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,.7);object-fit:contain;">';
+      lb.addEventListener('click', function () { lb.remove(); });
+      document.addEventListener('keydown', function _lbEsc(e) {
+        if (e.key === 'Escape') { lb.remove(); document.removeEventListener('keydown', _lbEsc); }
+      });
+      document.body.appendChild(lb);
+    }
+
+    // Delegate clicks on .pn-img-strip-thumb and .pn-img-thumb img in tableContainer
+    document.addEventListener('click', function (e) {
+      if (e.target.classList.contains('pn-img-strip-thumb')) {
+        openImageLightbox(e.target.src, e.target.alt);
+      } else if (e.target.tagName === 'IMG' && e.target.closest('.pn-img-thumb')) {
+        openImageLightbox(e.target.src, e.target.alt);
+      }
+    });
+
     })();
     </script>
     
