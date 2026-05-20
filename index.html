@@ -789,16 +789,9 @@
         gap: 10px;
         margin-bottom: 10px;
       }
-      .pn-img-thumb {
-        position: relative;
-        width: 90px;
-        height: 90px;
-        border-radius: 8px;
-        overflow: hidden;
-        border: 2px solid var(--border);
-        background: var(--panel-2);
-        flex-shrink: 0;
-      }
+      .pn-img-thumb { position: relative; width: 90px; height: 90px; border-radius: 8px; overflow: hidden; border: 2px solid var(--border); background: var(--panel-2); flex-shrink: 0; }
+      .pn-img-thumb-loading { width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
+      .ivl-thumb-loading { width:100%; aspect-ratio:1; display:flex; align-items:center; justify-content:center; background:var(--panel-2); }
       .pn-img-thumb img {
         width: 100%; height: 100%;
         object-fit: cover;
@@ -1433,7 +1426,7 @@
       }
     }
 
-    var _GAS_READS = { getRows: 1, getUsers: 1, getColVis: 1, getItemCodes: 1, listSheets: 1, getTabConfig: 1, getImages: 1 };
+    var _GAS_READS = { getRows: 1, getUsers: 1, getColVis: 1, getItemCodes: 1, listSheets: 1, getTabConfig: 1, getImages: 1, getImageData: 1 };
     function gasRun(action, params) {
       var url = _getGasUrl();
       if (!url) return Promise.reject(new Error('Apps Script URL not configured. Open ⚙ Settings and paste your GAS deployment URL.'));
@@ -2522,14 +2515,7 @@
         });
       });
 
-      // Personal Notes: view images lightbox
-      document.querySelectorAll('button[data-viewimgs]').forEach(function (b) {
-        b.addEventListener('click', function () {
-          const rowIndex = b.dataset.viewimgs;
-          const row = activeMod().rows.find(function (r) { return r.__rowIndex === parseInt(rowIndex, 10); });
-          openImageViewerLightbox(tabFor('personalnotes'), rowIndex, row);
-        });
-      });
+      // Personal Notes: view images — handled by delegated listener on document (see bottom of script)
 
       document.querySelectorAll('button[data-sign]').forEach(function (b) {
         b.addEventListener('click', function () {
@@ -3175,15 +3161,25 @@
           const wrap = $('pnImgPreviews');
           if (!wrap) return;
           wrap.innerHTML = '';
-          // Show already-saved images (edit mode) — reconstructed as data-URLs from base64
+          // Show already-saved images — fetch base64 from Drive on demand
           (existingImgs || []).forEach(function (img) {
-            const src = img.base64
-              ? 'data:' + (img.mimeType || 'image/png') + ';base64,' + img.base64
-              : (img.url || '');
             const div = document.createElement('div');
             div.className = 'pn-img-thumb';
-            div.innerHTML = '<img src="' + escapeHtml(src) + '" alt="' + escapeHtml(img.name) + '" title="' + escapeHtml(img.name) + '">'
+            div.innerHTML = '<div class="pn-img-thumb-loading"><div class="ivl-spinner" style="width:20px;height:20px;border-width:2px;margin:auto;margin-top:30px"></div></div>'
               + '<button class="pn-img-del" data-imgid="' + escapeHtml(img.id) + '" title="Remove">×</button>';
+            // Lazy fetch
+            gasRun('getImageData', { imageId: img.id }).then(function (res) {
+              const loadEl = div.querySelector('.pn-img-thumb-loading');
+              if (res && res.ok && res.base64) {
+                const src = 'data:' + (res.mimeType || img.mimeType || 'image/png') + ';base64,' + res.base64;
+                if (loadEl) loadEl.innerHTML = '<img src="' + src + '" alt="' + escapeHtml(img.name) + '" title="' + escapeHtml(img.name) + '">';
+              } else {
+                if (loadEl) loadEl.innerHTML = '<div style="font-size:10px;color:var(--muted);padding:8px;text-align:center">Error</div>';
+              }
+            }).catch(function () {
+              const loadEl = div.querySelector('.pn-img-thumb-loading');
+              if (loadEl) loadEl.innerHTML = '<div style="font-size:10px;color:var(--muted);padding:8px">Error</div>';
+            });
             div.querySelector('.pn-img-del').addEventListener('click', function () {
               const imgId = this.dataset.imgid;
               if (!confirm('Delete this image?')) return;
@@ -5076,6 +5072,16 @@
       }
     });
 
+    // Delegated listener for View Images button — works even after table re-renders
+    document.addEventListener('click', function (e) {
+      const btn = e.target.closest('button[data-viewimgs]');
+      if (!btn) return;
+      e.stopPropagation();
+      const rowIndex = btn.dataset.viewimgs;
+      const row = activeMod().rows.find(function (r) { return r.__rowIndex === parseInt(rowIndex, 10); });
+      openImageViewerLightbox(tabFor('personalnotes'), rowIndex, row);
+    });
+
     // =====================================================================
     // ============ Image Viewer Lightbox (from table View button) =========
     // =====================================================================
@@ -5142,13 +5148,22 @@
             return;
           }
 
-          // Build gallery — clicking a thumb opens big view with nav arrows
+          // Build gallery — clicking a thumb fetches full image from Drive on demand
           var currentIdx = 0;
+          var _cache = {}; // imageId → base64 data-url, cached after first fetch
 
-          function buildSrc(img) {
-            return img.base64
-              ? 'data:' + (img.mimeType || 'image/png') + ';base64,' + img.base64
-              : (img.url || '');
+          function fetchSrc(img, cb) {
+            if (_cache[img.id]) { cb(_cache[img.id]); return; }
+            gasRun('getImageData', { imageId: img.id })
+              .then(function (res) {
+                if (res && res.ok && res.base64) {
+                  const src = 'data:' + (res.mimeType || img.mimeType || 'image/png') + ';base64,' + res.base64;
+                  _cache[img.id] = src;
+                  cb(src);
+                } else {
+                  cb(''); // blank on error
+                }
+              }).catch(function () { cb(''); });
           }
 
           function renderGallery() {
@@ -5157,20 +5172,28 @@
               + '<div class="ivl-big-wrap" id="ivlBigWrap" style="display:none">'
               + '  <button class="ivl-nav ivl-nav-prev" id="ivlPrev">&#8249;</button>'
               + '  <div class="ivl-big-img-wrap">'
-              + '    <img class="ivl-big-img" id="ivlBigImg" src="" alt="">'
+              + '    <div class="ivl-spinner" id="ivlBigSpinner" style="margin:40px auto;display:none"></div>'
+              + '    <img class="ivl-big-img" id="ivlBigImg" src="" alt="" style="display:none">'
               + '    <div class="ivl-big-label" id="ivlBigLabel"></div>'
               + '  </div>'
               + '  <button class="ivl-nav ivl-nav-next" id="ivlNext">&#8250;</button>'
-              + '  <button class="ivl-close-big" id="ivlCloseBig">✕ Close</button>'
+              + '  <button class="ivl-close-big" id="ivlCloseBig">← Back to gallery</button>'
               + '</div>';
 
             const gallery = document.getElementById('ivlGallery');
             images.forEach(function (img, i) {
-              const src = buildSrc(img);
               const thumb = document.createElement('div');
               thumb.className = 'ivl-thumb';
-              thumb.innerHTML = '<img src="' + escapeHtml(src) + '" alt="' + escapeHtml(img.name) + '" loading="lazy">'
+              thumb.innerHTML = '<div class="ivl-thumb-loading"><div class="ivl-spinner"></div></div>'
                 + '<div class="ivl-thumb-label">' + escapeHtml(img.name) + '</div>';
+              // Lazy-load thumbnail
+              fetchSrc(img, function (src) {
+                if (src) {
+                  thumb.querySelector('.ivl-thumb-loading').innerHTML = '<img src="' + src + '" alt="' + escapeHtml(img.name) + '" loading="lazy">';
+                } else {
+                  thumb.querySelector('.ivl-thumb-loading').innerHTML = '<div style="color:var(--muted);font-size:11px;padding:10px;text-align:center">Load error</div>';
+                }
+              });
               thumb.addEventListener('click', function () { openBig(i); });
               gallery.appendChild(thumb);
             });
@@ -5178,12 +5201,24 @@
             function openBig(idx) {
               currentIdx = idx;
               const img = images[idx];
-              const src = buildSrc(img);
-              document.getElementById('ivlBigImg').src = src;
-              document.getElementById('ivlBigImg').alt = img.name;
-              document.getElementById('ivlBigLabel').textContent = img.name + '  (' + (idx + 1) + ' / ' + images.length + ')';
+              const bigImg = document.getElementById('ivlBigImg');
+              const spinner = document.getElementById('ivlBigSpinner');
+              const label = document.getElementById('ivlBigLabel');
               document.getElementById('ivlBigWrap').style.display = 'flex';
               document.getElementById('ivlGallery').style.display = 'none';
+              bigImg.style.display = 'none';
+              spinner.style.display = 'block';
+              label.textContent = img.name + '  (' + (idx + 1) + ' / ' + images.length + ')';
+              fetchSrc(img, function (src) {
+                spinner.style.display = 'none';
+                if (src) {
+                  bigImg.src = src;
+                  bigImg.alt = img.name;
+                  bigImg.style.display = '';
+                } else {
+                  label.textContent = 'Could not load image.';
+                }
+              });
             }
 
             document.getElementById('ivlPrev').addEventListener('click', function () {

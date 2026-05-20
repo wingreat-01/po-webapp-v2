@@ -79,7 +79,8 @@ function doGet(e) {
     case 'getTabConfig': result = getTabConfig();         break;
     case 'getItemCodes': result = getItemCodes();         break;
     case 'listSheets':   result = listSheets();           break;
-    case 'getImages':    result = getImages(p.sheetName, p.rowIndex); break;
+    case 'getImages':    result = getImages(p.sheetName, p.rowIndex);  break;
+    case 'getImageData': result = getImageData(p.imageId);             break;
     default:             result = { error: 'Unknown action: ' + p.action };
   }
   return jsonResponse_(result);
@@ -710,38 +711,49 @@ function saveTabConfig(jsonStr) {
 }
 
 // =====================================================================
-// ============ Personal Notes — Image Attachments =====================
+// ============ Personal Notes — Image Attachments (Google Drive) ======
 // =====================================================================
-// Images are stored entirely inside the Google Sheet in a tab called
-// "PERSONAL_NOTES_IMAGES". No Google Drive access is required.
-// Each row stores: imageId | sheetName | rowIndex | fileName | mimeType | base64Data | createdAt
+// Images are stored as files in a Google Drive folder "PO_WEBAPP_IMAGES".
+// The sheet "PERSONAL_NOTES_IMAGES" acts as an index:
+//   [imageId | sheetName | rowIndex | fileName | mimeType | driveFileId | createdAt]
 //
-// base64Data is stored directly in the cell as a plain string.
-// The frontend reconstructs the data-URL as: data:<mimeType>;base64,<base64Data>
+// getImages    — returns image list (id, name, mimeType) for a row; no binary data
+// getImageData — returns base64 of ONE image by imageId (called on demand when viewing)
+// saveImage    — uploads base64 to Drive, records fileId in index sheet
+// deleteImage  — trashes Drive file and removes index row
 //
-// getImages  — returns images for a given sheet + row (base64 included so frontend can display)
-// saveImage  — appends a row with the base64 data
-// deleteImage — removes the row
+// IMPORTANT: Requires Drive authorization. Run authorizeDrive() once from the
+// Apps Script editor to trigger the permission prompt, then redeploy.
 
-const IMAGES_INDEX_SHEET = 'PERSONAL_NOTES_IMAGES';
+const IMAGES_INDEX_SHEET  = 'PERSONAL_NOTES_IMAGES';
+const IMAGES_DRIVE_FOLDER = 'PO_WEBAPP_IMAGES';
+
+/** One-time authorization helper — run this from the editor once, then delete. */
+function authorizeDrive() {
+  DriveApp.getRootFolder();
+  Logger.log('Drive authorized successfully.');
+}
+
+function _getImagesFolder_() {
+  const folders = DriveApp.getFoldersByName(IMAGES_DRIVE_FOLDER);
+  if (folders.hasNext()) return folders.next();
+  return DriveApp.createFolder(IMAGES_DRIVE_FOLDER);
+}
 
 function _getImagesIndexSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(IMAGES_INDEX_SHEET);
   if (!sheet) {
     sheet = ss.insertSheet(IMAGES_INDEX_SHEET);
-    sheet.appendRow(['imageId', 'sheetName', 'rowIndex', 'fileName', 'mimeType', 'base64Data', 'createdAt']);
+    sheet.appendRow(['imageId', 'sheetName', 'rowIndex', 'fileName', 'mimeType', 'driveFileId', 'createdAt']);
     sheet.setFrozenRows(1);
-    // Hide the base64Data column (col F) — it's huge and not human-readable
-    sheet.hideColumns(6);
   }
   return sheet;
 }
 
 /**
- * Returns all images for a specific sheet tab + row.
- * Each image includes the base64Data so the frontend can render it as a data-URL.
- * Response: { ok: true, images: [{ id, name, mimeType, base64 }] }
+ * Returns image list for a row — lightweight, no binary data.
+ * Response: { ok: true, images: [{ id, name, mimeType }] }
  */
 function getImages(sheetName, rowIndex) {
   try {
@@ -750,7 +762,7 @@ function getImages(sheetName, rowIndex) {
     const sheet = _getImagesIndexSheet_();
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return { ok: true, images: [] };
-    const data = sheet.getRange(2, 1, lastRow - 1, 7).getValues();
+    const data = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
     const images = [];
     data.forEach(function (row) {
       if (String(row[1] || '').trim() === sheetName &&
@@ -760,7 +772,7 @@ function getImages(sheetName, rowIndex) {
           id:       String(row[0]),
           name:     String(row[3] || ''),
           mimeType: String(row[4] || 'image/png'),
-          base64:   String(row[5] || ''),
+          fileId:   String(row[5] || ''),
         });
       }
     });
@@ -771,7 +783,40 @@ function getImages(sheetName, rowIndex) {
 }
 
 /**
- * Saves a base64-encoded image directly into the sheet.
+ * Fetches ONE image from Drive and returns it as base64.
+ * Called on-demand when the viewer opens a specific image.
+ * Response: { ok: true, base64, mimeType, name }
+ */
+function getImageData(imageId) {
+  try {
+    imageId = String(imageId || '').trim();
+    if (!imageId) return { ok: false, error: 'imageId required' };
+
+    const sheet = _getImagesIndexSheet_();
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return { ok: false, error: 'Image not found' };
+    const data = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
+
+    for (let i = 0; i < data.length; i++) {
+      if (String(data[i][0] || '').trim() === imageId) {
+        const fileId  = String(data[i][5] || '').trim();
+        const name    = String(data[i][3] || '');
+        const mimeType= String(data[i][4] || 'image/png');
+        if (!fileId) return { ok: false, error: 'No Drive file ID recorded' };
+        const file   = DriveApp.getFileById(fileId);
+        const bytes  = file.getBlob().getBytes();
+        const base64 = Utilities.base64Encode(bytes);
+        return { ok: true, base64: base64, mimeType: mimeType, name: name };
+      }
+    }
+    return { ok: false, error: 'Image "' + imageId + '" not found in index' };
+  } catch (e) {
+    return { ok: false, error: e.toString() };
+  }
+}
+
+/**
+ * Uploads a base64-encoded image to Drive and records its fileId in the index sheet.
  * Response: { success: true, imageId }
  */
 function saveImage(sheetName, rowIndex, fileName, base64Data, mimeType) {
@@ -782,10 +827,16 @@ function saveImage(sheetName, rowIndex, fileName, base64Data, mimeType) {
     mimeType   = String(mimeType   || 'image/png').trim();
     if (!base64Data) return { success: false, error: 'No image data provided' };
 
-    const imageId    = Utilities.getUuid();
+    const folder    = _getImagesFolder_();
+    const imageId   = Utilities.getUuid();
+    const driveName = sheetName + '__row' + rowIndex + '__' + imageId + '__' + fileName;
+    const blob      = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, driveName);
+    const file      = folder.createFile(blob);
+    const fileId    = file.getId();
+
     const indexSheet = _getImagesIndexSheet_();
     const createdAt  = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
-    indexSheet.appendRow([imageId, sheetName, rowIndex, fileName, mimeType, base64Data, createdAt]);
+    indexSheet.appendRow([imageId, sheetName, rowIndex, fileName, mimeType, fileId, createdAt]);
 
     return { success: true, imageId: imageId };
   } catch (e) {
@@ -794,7 +845,7 @@ function saveImage(sheetName, rowIndex, fileName, base64Data, mimeType) {
 }
 
 /**
- * Deletes an image row from the index sheet by imageId.
+ * Trashes the Drive file and removes the index row.
  * Response: { success: true }
  */
 function deleteImage(imageId) {
@@ -806,9 +857,13 @@ function deleteImage(imageId) {
     const lastRow = indexSheet.getLastRow();
     if (lastRow < 2) return { success: false, error: 'Image not found' };
 
-    const ids = indexSheet.getRange(2, 1, lastRow - 1, 1).getValues();
-    for (let i = ids.length - 1; i >= 0; i--) {
-      if (String(ids[i][0] || '').trim() === imageId) {
+    const data = indexSheet.getRange(2, 1, lastRow - 1, 6).getValues();
+    for (let i = data.length - 1; i >= 0; i--) {
+      if (String(data[i][0] || '').trim() === imageId) {
+        try {
+          const fileId = String(data[i][5] || '').trim();
+          if (fileId) DriveApp.getFileById(fileId).setTrashed(true);
+        } catch (e2) { /* file already gone — ignore */ }
         indexSheet.deleteRow(i + 2);
         return { success: true };
       }
