@@ -3115,11 +3115,14 @@
           const wrap = $('pnImgPreviews');
           if (!wrap) return;
           wrap.innerHTML = '';
-          // Show already-saved images (edit mode)
+          // Show already-saved images (edit mode) — reconstructed as data-URLs from base64
           (existingImgs || []).forEach(function (img) {
+            const src = img.base64
+              ? 'data:' + (img.mimeType || 'image/png') + ';base64,' + img.base64
+              : (img.url || '');
             const div = document.createElement('div');
             div.className = 'pn-img-thumb';
-            div.innerHTML = '<img src="' + escapeHtml(img.url) + '" alt="' + escapeHtml(img.name) + '" title="' + escapeHtml(img.name) + '">'
+            div.innerHTML = '<img src="' + escapeHtml(src) + '" alt="' + escapeHtml(img.name) + '" title="' + escapeHtml(img.name) + '">'
               + '<button class="pn-img-del" data-imgid="' + escapeHtml(img.id) + '" title="Remove">×</button>';
             div.querySelector('.pn-img-del').addEventListener('click', function () {
               const imgId = this.dataset.imgid;

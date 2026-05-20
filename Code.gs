@@ -712,39 +712,36 @@ function saveTabConfig(jsonStr) {
 // =====================================================================
 // ============ Personal Notes — Image Attachments =====================
 // =====================================================================
-// Images are stored in Google Drive inside a folder named
-// "PO_WEBAPP_IMAGES". Each image file is named:
-//   <sheetName>__row<rowIndex>__<uuid>__<originalName>
-// A reference row is appended to the "PERSONAL_NOTES_IMAGES" tab with:
-//   [imageId, sheetName, rowIndex, fileName, mimeType, driveUrl, createdAt]
+// Images are stored entirely inside the Google Sheet in a tab called
+// "PERSONAL_NOTES_IMAGES". No Google Drive access is required.
+// Each row stores: imageId | sheetName | rowIndex | fileName | mimeType | base64Data | createdAt
 //
-// getImages  — returns all images for a given sheet + row
-// saveImage  — uploads base64 image to Drive, records in index sheet
-// deleteImage — removes Drive file and index row
+// base64Data is stored directly in the cell as a plain string.
+// The frontend reconstructs the data-URL as: data:<mimeType>;base64,<base64Data>
+//
+// getImages  — returns images for a given sheet + row (base64 included so frontend can display)
+// saveImage  — appends a row with the base64 data
+// deleteImage — removes the row
 
 const IMAGES_INDEX_SHEET = 'PERSONAL_NOTES_IMAGES';
-const IMAGES_DRIVE_FOLDER = 'PO_WEBAPP_IMAGES';
-
-function _getImagesFolder_() {
-  const folders = DriveApp.getFoldersByName(IMAGES_DRIVE_FOLDER);
-  if (folders.hasNext()) return folders.next();
-  return DriveApp.createFolder(IMAGES_DRIVE_FOLDER);
-}
 
 function _getImagesIndexSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(IMAGES_INDEX_SHEET);
   if (!sheet) {
     sheet = ss.insertSheet(IMAGES_INDEX_SHEET);
-    sheet.appendRow(['imageId', 'sheetName', 'rowIndex', 'fileName', 'mimeType', 'driveUrl', 'createdAt']);
+    sheet.appendRow(['imageId', 'sheetName', 'rowIndex', 'fileName', 'mimeType', 'base64Data', 'createdAt']);
     sheet.setFrozenRows(1);
+    // Hide the base64Data column (col F) — it's huge and not human-readable
+    sheet.hideColumns(6);
   }
   return sheet;
 }
 
 /**
  * Returns all images for a specific sheet tab + row.
- * Response: { ok: true, images: [{ id, name, url, mimeType }] }
+ * Each image includes the base64Data so the frontend can render it as a data-URL.
+ * Response: { ok: true, images: [{ id, name, mimeType, base64 }] }
  */
 function getImages(sheetName, rowIndex) {
   try {
@@ -762,8 +759,8 @@ function getImages(sheetName, rowIndex) {
         images.push({
           id:       String(row[0]),
           name:     String(row[3] || ''),
-          url:      String(row[5] || ''),
-          mimeType: String(row[4] || ''),
+          mimeType: String(row[4] || 'image/png'),
+          base64:   String(row[5] || ''),
         });
       }
     });
@@ -774,8 +771,8 @@ function getImages(sheetName, rowIndex) {
 }
 
 /**
- * Saves a base64-encoded image to Google Drive and records it in the index sheet.
- * Response: { success: true, imageId, url }
+ * Saves a base64-encoded image directly into the sheet.
+ * Response: { success: true, imageId }
  */
 function saveImage(sheetName, rowIndex, fileName, base64Data, mimeType) {
   try {
@@ -785,33 +782,19 @@ function saveImage(sheetName, rowIndex, fileName, base64Data, mimeType) {
     mimeType   = String(mimeType   || 'image/png').trim();
     if (!base64Data) return { success: false, error: 'No image data provided' };
 
-    const folder  = _getImagesFolder_();
-    const imageId = Utilities.getUuid();
-    const driveName = sheetName + '__row' + rowIndex + '__' + imageId + '__' + fileName;
-
-    const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, driveName);
-    const file = folder.createFile(blob);
-    // Make the file publicly readable so the frontend can display it via <img src>
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-
-    // Build a direct-display URL (works as <img src> without extra auth)
-    const fileId = file.getId();
-    const url = 'https://drive.google.com/uc?export=view&id=' + fileId;
-
+    const imageId    = Utilities.getUuid();
     const indexSheet = _getImagesIndexSheet_();
-    indexSheet.appendRow([
-      imageId, sheetName, rowIndex, fileName, mimeType, url,
-      Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss')
-    ]);
+    const createdAt  = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+    indexSheet.appendRow([imageId, sheetName, rowIndex, fileName, mimeType, base64Data, createdAt]);
 
-    return { success: true, imageId: imageId, url: url };
+    return { success: true, imageId: imageId };
   } catch (e) {
     return { success: false, error: e.toString() };
   }
 }
 
 /**
- * Deletes an image from Drive and removes its index row.
+ * Deletes an image row from the index sheet by imageId.
  * Response: { success: true }
  */
 function deleteImage(imageId) {
@@ -823,23 +806,14 @@ function deleteImage(imageId) {
     const lastRow = indexSheet.getLastRow();
     if (lastRow < 2) return { success: false, error: 'Image not found' };
 
-    const data = indexSheet.getRange(2, 1, lastRow - 1, 6).getValues();
-    let found = false;
-    for (let i = data.length - 1; i >= 0; i--) {
-      if (String(data[i][0] || '').trim() === imageId) {
-        // Try to delete the Drive file (url contains the file id)
-        try {
-          const url = String(data[i][5] || '');
-          const match = url.match(/[?&]id=([^&]+)/);
-          if (match) DriveApp.getFileById(match[1]).setTrashed(true);
-        } catch (e2) { /* ignore if file already gone */ }
+    const ids = indexSheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    for (let i = ids.length - 1; i >= 0; i--) {
+      if (String(ids[i][0] || '').trim() === imageId) {
         indexSheet.deleteRow(i + 2);
-        found = true;
-        break;
+        return { success: true };
       }
     }
-    if (!found) return { success: false, error: 'Image "' + imageId + '" not found' };
-    return { success: true };
+    return { success: false, error: 'Image "' + imageId + '" not found' };
   } catch (e) {
     return { success: false, error: e.toString() };
   }
