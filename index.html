@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0053)file:///C:/Users/WAREHOUSE-PC/Downloads/index_32.html -->
+<!-- saved from url=(0053)file:///C:/Users/WAREHOUSE-PC/Downloads/index_34.html -->
 <html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -747,6 +747,14 @@
         box-shadow: 0 2px 6px rgba(0,0,0,0.4);
         white-space: nowrap;
       }
+
+      .batch-remarks-ta {
+        vertical-align: top;
+        line-height: 1.4;
+        overflow-y: auto !important;
+      }
+      /* Hint tooltip on remarks fields */
+      .form-field textarea[placeholder]::placeholder { color: var(--muted); font-size: 11px; font-style: italic; }
 
       /* ============ Shipment Selector Bar ============ */
       .shipment-bar {
@@ -2980,6 +2988,37 @@
         + '</div>';
       $('modalMount').innerHTML = html;
 
+      // Alt+Enter inserts a newline in all textarea fields (remarks / notes / comments)
+      $('modalMount').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && e.altKey) {
+          const el = e.target;
+          if (el && el.tagName === 'TEXTAREA') {
+            e.preventDefault();
+            const start = el.selectionStart;
+            const end   = el.selectionEnd;
+            el.value = el.value.substring(0, start) + '\n' + el.value.substring(end);
+            el.selectionStart = el.selectionEnd = start + 1;
+            // auto-grow the textarea to show the new line
+            el.style.height = 'auto';
+            el.style.height = (el.scrollHeight + 2) + 'px';
+          }
+        }
+      });
+
+      // Auto-grow textareas on input as well
+      $('modalMount').querySelectorAll('textarea').forEach(function (ta) {
+        ta.style.resize = 'vertical';
+        ta.style.minHeight = '72px';
+        ta.style.height = 'auto';
+        ta.style.height = (ta.scrollHeight + 2) + 'px';
+        ta.addEventListener('input', function () {
+          ta.style.height = 'auto';
+          ta.style.height = (ta.scrollHeight + 2) + 'px';
+        });
+        // Show hint in placeholder area
+        if (!ta.placeholder) ta.placeholder = 'Alt+Enter for new line';
+      });
+
       _attachEsc(closeModal);
       $('modalClose').addEventListener('click', closeModal);
       $('modalCancel').addEventListener('click', closeModal);
@@ -3191,6 +3230,9 @@
         }
         if (CALC_FIELDS[key]) {
           return '<div class="batch-cell-wrap"><input type="text" class="batch-cell batch-calc" data-field="' + escapeHtml(h) + '" readonly tabindex="-1" style="background:var(--row-hover,#f5f5f5);color:var(--muted,#888);cursor:default;" placeholder="auto"></div>';
+        }
+        if (/note|comment|description|remark/i.test(h)) {
+          return '<div class="batch-cell-wrap"><textarea class="batch-cell batch-remarks-ta" data-field="' + escapeHtml(h) + '" placeholder="Alt+Enter for new line" rows="1" style="resize:vertical;min-height:30px;width:100%;padding:4px 6px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:4px;font-family:inherit;font-size:13px;overflow:hidden;box-sizing:border-box;"></textarea><div class="batch-fill-handle" title="Drag to fill down"></div></div>';
         }
         return '<div class="batch-cell-wrap"><input type="text" class="batch-cell" data-field="' + escapeHtml(h) + '"><div class="batch-fill-handle" title="Drag to fill down"></div></div>';
       }
@@ -3446,6 +3488,20 @@
 
       // Enter moves focus down the same column; on the last row, adds a new row
       $('batchBody').addEventListener('keydown', function (e) {
+        // Alt+Enter in a remarks textarea → insert newline
+        if (e.key === 'Enter' && e.altKey) {
+          const el = e.target;
+          if (el && el.classList.contains('batch-remarks-ta')) {
+            e.preventDefault();
+            const start = el.selectionStart;
+            const end   = el.selectionEnd;
+            el.value = el.value.substring(0, start) + '\n' + el.value.substring(end);
+            el.selectionStart = el.selectionEnd = start + 1;
+            el.style.height = 'auto';
+            el.style.height = (el.scrollHeight + 2) + 'px';
+          }
+          return;
+        }
         if (e.key !== 'Enter') return;
         const el = document.activeElement;
         if (!el || !el.classList.contains('batch-cell')) return;
