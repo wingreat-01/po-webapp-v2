@@ -80,7 +80,6 @@ function doGet(e) {
     case 'getItemCodes': result = getItemCodes();         break;
     case 'listSheets':   result = listSheets();           break;
     case 'getImages':    result = getImages(p.sheetName, p.rowIndex);  break;
-    case 'getImageData': result = getImageData(p.imageId);             break;
     default:             result = { error: 'Unknown action: ' + p.action };
   }
   return jsonResponse_(result);
@@ -122,7 +121,8 @@ function doPost(e) {
     case 'saveColVis':     result = saveColVis(body.jsonStr);                                                 break;
     case 'saveTabConfig':  result = saveTabConfig(body.jsonStr);                                              break;
     case 'saveImage':      result = saveImage(body.sheetName, body.rowIndex, body.name, body.base64, body.mimeType); break;
-    case 'deleteImage':    result = deleteImage(body.imageId);                                                break;
+    case 'getImageData':   result = getImageData(body.imageId);                                                      break;
+    case 'deleteImage':    result = deleteImage(body.imageId);                                                       break;
     default:               result = { success: false, error: 'Unknown action: ' + body.action };
   }
   return jsonResponse_(result);

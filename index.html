@@ -1426,7 +1426,7 @@
       }
     }
 
-    var _GAS_READS = { getRows: 1, getUsers: 1, getColVis: 1, getItemCodes: 1, listSheets: 1, getTabConfig: 1, getImages: 1, getImageData: 1 };
+    var _GAS_READS = { getRows: 1, getUsers: 1, getColVis: 1, getItemCodes: 1, listSheets: 1, getTabConfig: 1, getImages: 1 };
     function gasRun(action, params) {
       var url = _getGasUrl();
       if (!url) return Promise.reject(new Error('Apps Script URL not configured. Open ⚙ Settings and paste your GAS deployment URL.'));
@@ -3174,11 +3174,12 @@
                 const src = 'data:' + (res.mimeType || img.mimeType || 'image/png') + ';base64,' + res.base64;
                 if (loadEl) loadEl.innerHTML = '<img src="' + src + '" alt="' + escapeHtml(img.name) + '" title="' + escapeHtml(img.name) + '">';
               } else {
-                if (loadEl) loadEl.innerHTML = '<div style="font-size:10px;color:var(--muted);padding:8px;text-align:center">Error</div>';
+                const msg = (res && res.error) ? res.error : 'Error';
+                if (loadEl) loadEl.innerHTML = '<div style="font-size:9px;color:#e55;padding:4px;text-align:center;word-break:break-all">' + escapeHtml(msg) + '</div>';
               }
-            }).catch(function () {
+            }).catch(function (e) {
               const loadEl = div.querySelector('.pn-img-thumb-loading');
-              if (loadEl) loadEl.innerHTML = '<div style="font-size:10px;color:var(--muted);padding:8px">Error</div>';
+              if (loadEl) loadEl.innerHTML = '<div style="font-size:9px;color:#e55;padding:4px">' + escapeHtml(e.message || 'Error') + '</div>';
             });
             div.querySelector('.pn-img-del').addEventListener('click', function () {
               const imgId = this.dataset.imgid;
@@ -5152,7 +5153,7 @@
           var currentIdx = 0;
           var _cache = {}; // imageId → base64 data-url, cached after first fetch
 
-          function fetchSrc(img, cb) {
+          function fetchSrc(img, cb, onErr) {
             if (_cache[img.id]) { cb(_cache[img.id]); return; }
             gasRun('getImageData', { imageId: img.id })
               .then(function (res) {
@@ -5161,9 +5162,12 @@
                   _cache[img.id] = src;
                   cb(src);
                 } else {
-                  cb(''); // blank on error
+                  const msg = (res && res.error) ? res.error : 'Unknown error';
+                  if (onErr) onErr(msg); else cb('');
                 }
-              }).catch(function () { cb(''); });
+              }).catch(function (e) {
+                if (onErr) onErr(e.message || String(e)); else cb('');
+              });
           }
 
           function renderGallery() {
@@ -5191,8 +5195,10 @@
                 if (src) {
                   thumb.querySelector('.ivl-thumb-loading').innerHTML = '<img src="' + src + '" alt="' + escapeHtml(img.name) + '" loading="lazy">';
                 } else {
-                  thumb.querySelector('.ivl-thumb-loading').innerHTML = '<div style="color:var(--muted);font-size:11px;padding:10px;text-align:center">Load error</div>';
+                  thumb.querySelector('.ivl-thumb-loading').innerHTML = '<div style="color:var(--muted);font-size:10px;padding:8px;text-align:center">Error</div>';
                 }
+              }, function (errMsg) {
+                thumb.querySelector('.ivl-thumb-loading').innerHTML = '<div style="color:#e55;font-size:9px;padding:6px;text-align:center;word-break:break-all">' + escapeHtml(errMsg) + '</div>';
               });
               thumb.addEventListener('click', function () { openBig(i); });
               gallery.appendChild(thumb);
@@ -5218,6 +5224,9 @@
                 } else {
                   label.textContent = 'Could not load image.';
                 }
+              }, function (errMsg) {
+                spinner.style.display = 'none';
+                label.textContent = 'Error: ' + errMsg;
               });
             }
 
