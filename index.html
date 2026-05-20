@@ -848,6 +848,53 @@
         font-size: 10px; color: var(--muted); cursor: pointer;
       }
 
+      /* ── View Images button ── */
+      .btn-view-imgs { color: var(--accent); }
+      .btn-view-imgs:hover { background: var(--accent); color: #fff; }
+
+      /* ── Image Viewer Lightbox ── */
+      #imgViewerLightbox { position: fixed; inset: 0; z-index: 9000; }
+      .ivl-backdrop {
+        position: absolute; inset: 0;
+        background: rgba(0,0,0,.75);
+        display: flex; align-items: center; justify-content: center;
+        padding: 20px;
+      }
+      .ivl-panel {
+        background: var(--panel); border: 1px solid var(--border);
+        border-radius: 12px; width: min(820px, 96vw);
+        max-height: 90vh; display: flex; flex-direction: column;
+        overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.5);
+      }
+      .ivl-header {
+        display: flex; align-items: center; gap: 10px;
+        padding: 14px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+      }
+      .ivl-title { display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 700; color: var(--text); }
+      .ivl-subtitle { flex: 1; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .ivl-close { background: none; border: none; font-size: 22px; color: var(--muted); cursor: pointer; line-height: 1; padding: 0 4px; flex-shrink: 0; }
+      .ivl-close:hover { color: var(--text); }
+      .ivl-body { flex: 1; overflow-y: auto; padding: 18px; min-height: 200px; }
+      .ivl-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; height: 180px; color: var(--muted); font-size: 13px; }
+      .ivl-spinner { width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: ivlSpin .7s linear infinite; }
+      @keyframes ivlSpin { to { transform: rotate(360deg); } }
+      .ivl-empty { text-align: center; color: var(--muted); font-size: 14px; padding: 40px 20px; line-height: 1.8; }
+      .ivl-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+      .ivl-thumb { border-radius: 8px; overflow: hidden; border: 2px solid var(--border); background: var(--panel-2); cursor: pointer; transition: border-color .15s, transform .15s; }
+      .ivl-thumb:hover { border-color: var(--accent); transform: scale(1.02); }
+      .ivl-thumb img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+      .ivl-thumb-label { font-size: 11px; color: var(--muted); padding: 5px 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .ivl-big-wrap { display: flex; align-items: center; flex-direction: column; gap: 10px; position: relative; padding: 0 50px; }
+      .ivl-big-img-wrap { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+      .ivl-big-img { max-width: 100%; max-height: 55vh; border-radius: 8px; object-fit: contain; box-shadow: 0 4px 20px rgba(0,0,0,.3); }
+      .ivl-big-label { font-size: 12px; color: var(--muted); text-align: center; }
+      .ivl-nav { background: var(--panel-2); border: 1px solid var(--border); border-radius: 50%; width: 38px; height: 38px; font-size: 22px; cursor: pointer; color: var(--text); display: flex; align-items: center; justify-content: center; flex-shrink: 0; position: absolute; top: 50%; transform: translateY(-50%); }
+      .ivl-nav-prev { left: 0; }
+      .ivl-nav-next { right: 0; }
+      .ivl-nav:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+      .ivl-close-big { margin-top: 12px; padding: 7px 18px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 12px; cursor: pointer; }
+      .ivl-close-big:hover { border-color: var(--accent); }
+
       /* ============ Shipment Selector Bar ============ */
       .shipment-bar {
         display: flex; align-items: center; gap: 10px;
@@ -2382,6 +2429,10 @@
             html += '<td class="actions"><span style="font-size:11px;color:var(--muted)">Syncing…</span></td></tr>';
           } else {
             html += '<td class="actions">';
+            // Personal Notes: View Images button
+            if (STATE.activeModule === 'personalnotes') {
+              html += '<button class="btn btn-icon btn-view-imgs" data-viewimgs="' + row.__rowIndex + '" title="View Images"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></button>';
+            }
             if (isAdmin()) {
               html += '<button class="btn btn-icon" data-edit="' + row.__rowIndex + '" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>';
             }
@@ -2468,6 +2519,15 @@
           if (confirm('Delete this ' + activeCfg().recordType.replace(/s$/,'') + '? This cannot be undone.')) {
             deleteCurrentRow(idx);
           }
+        });
+      });
+
+      // Personal Notes: view images lightbox
+      document.querySelectorAll('button[data-viewimgs]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          const rowIndex = b.dataset.viewimgs;
+          const row = activeMod().rows.find(function (r) { return r.__rowIndex === parseInt(rowIndex, 10); });
+          openImageViewerLightbox(tabFor('personalnotes'), rowIndex, row);
         });
       });
 
@@ -4991,14 +5051,14 @@
         }, 60);
       }
     // =====================================================================
-    // ============ Image Lightbox =========================================
+    // ============ Image Lightbox (simple full-screen click-to-close) =====
     // =====================================================================
     function openImageLightbox(src, alt) {
       const existing = document.getElementById('pnLightbox');
       if (existing) existing.remove();
       const lb = document.createElement('div');
       lb.id = 'pnLightbox';
-      lb.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;cursor:zoom-out;';
+      lb.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;cursor:zoom-out;';
       lb.innerHTML = '<img src="' + escapeHtml(src) + '" alt="' + escapeHtml(alt || '') + '" style="max-width:90vw;max-height:90vh;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,.7);object-fit:contain;">';
       lb.addEventListener('click', function () { lb.remove(); });
       document.addEventListener('keydown', function _lbEsc(e) {
@@ -5007,7 +5067,7 @@
       document.body.appendChild(lb);
     }
 
-    // Delegate clicks on .pn-img-strip-thumb and .pn-img-thumb img in tableContainer
+    // Delegate thumbnail clicks inside modal
     document.addEventListener('click', function (e) {
       if (e.target.classList.contains('pn-img-strip-thumb')) {
         openImageLightbox(e.target.src, e.target.alt);
@@ -5015,6 +5075,136 @@
         openImageLightbox(e.target.src, e.target.alt);
       }
     });
+
+    // =====================================================================
+    // ============ Image Viewer Lightbox (from table View button) =========
+    // =====================================================================
+    function openImageViewerLightbox(sheetName, rowIndex, row) {
+      // Remove any existing viewer
+      const existing = document.getElementById('imgViewerLightbox');
+      if (existing) existing.remove();
+
+      // Build row summary label from first few non-empty fields
+      var rowLabel = '';
+      if (row) {
+        var parts = [];
+        Object.keys(row).forEach(function (k) {
+          if (k === '__rowIndex') return;
+          var v = String(row[k] || '').trim();
+          if (v && parts.length < 3) parts.push(v);
+        });
+        rowLabel = parts.join(' · ');
+      }
+
+      // Overlay shell — show loading state immediately
+      const lb = document.createElement('div');
+      lb.id = 'imgViewerLightbox';
+      lb.innerHTML = ''
+        + '<div class="ivl-backdrop" id="ivlBackdrop">'
+        + '  <div class="ivl-panel" onclick="event.stopPropagation()">'
+        + '    <div class="ivl-header">'
+        + '      <div class="ivl-title">'
+        + '        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>'
+        + '        <span>Image Attachments</span>'
+        + '      </div>'
+        + '      <div class="ivl-subtitle">' + escapeHtml(rowLabel) + '</div>'
+        + '      <button class="ivl-close" id="ivlClose">×</button>'
+        + '    </div>'
+        + '    <div class="ivl-body" id="ivlBody">'
+        + '      <div class="ivl-loading"><div class="ivl-spinner"></div>Loading images…</div>'
+        + '    </div>'
+        + '  </div>'
+        + '</div>';
+      document.body.appendChild(lb);
+
+      // Close handlers
+      function _closeViewer() { lb.remove(); }
+      document.getElementById('ivlClose').addEventListener('click', _closeViewer);
+      document.getElementById('ivlBackdrop').addEventListener('click', _closeViewer);
+      document.addEventListener('keydown', function _ivlEsc(e) {
+        if (e.key === 'Escape') { _closeViewer(); document.removeEventListener('keydown', _ivlEsc); }
+      });
+
+      // Fetch images
+      gasRun('getImages', { sheetName: sheetName, rowIndex: String(rowIndex) })
+        .then(function (res) {
+          const body = document.getElementById('ivlBody');
+          if (!body) return;
+
+          if (!res || !res.ok) {
+            body.innerHTML = '<div class="ivl-empty">Failed to load images: ' + escapeHtml((res && res.error) || 'unknown error') + '</div>';
+            return;
+          }
+
+          const images = res.images || [];
+          if (!images.length) {
+            body.innerHTML = '<div class="ivl-empty">📭 No images attached to this note yet.<br><span style="font-size:12px;color:var(--muted)">Open Edit to attach images.</span></div>';
+            return;
+          }
+
+          // Build gallery — clicking a thumb opens big view with nav arrows
+          var currentIdx = 0;
+
+          function buildSrc(img) {
+            return img.base64
+              ? 'data:' + (img.mimeType || 'image/png') + ';base64,' + img.base64
+              : (img.url || '');
+          }
+
+          function renderGallery() {
+            body.innerHTML = ''
+              + '<div class="ivl-gallery" id="ivlGallery"></div>'
+              + '<div class="ivl-big-wrap" id="ivlBigWrap" style="display:none">'
+              + '  <button class="ivl-nav ivl-nav-prev" id="ivlPrev">&#8249;</button>'
+              + '  <div class="ivl-big-img-wrap">'
+              + '    <img class="ivl-big-img" id="ivlBigImg" src="" alt="">'
+              + '    <div class="ivl-big-label" id="ivlBigLabel"></div>'
+              + '  </div>'
+              + '  <button class="ivl-nav ivl-nav-next" id="ivlNext">&#8250;</button>'
+              + '  <button class="ivl-close-big" id="ivlCloseBig">✕ Close</button>'
+              + '</div>';
+
+            const gallery = document.getElementById('ivlGallery');
+            images.forEach(function (img, i) {
+              const src = buildSrc(img);
+              const thumb = document.createElement('div');
+              thumb.className = 'ivl-thumb';
+              thumb.innerHTML = '<img src="' + escapeHtml(src) + '" alt="' + escapeHtml(img.name) + '" loading="lazy">'
+                + '<div class="ivl-thumb-label">' + escapeHtml(img.name) + '</div>';
+              thumb.addEventListener('click', function () { openBig(i); });
+              gallery.appendChild(thumb);
+            });
+
+            function openBig(idx) {
+              currentIdx = idx;
+              const img = images[idx];
+              const src = buildSrc(img);
+              document.getElementById('ivlBigImg').src = src;
+              document.getElementById('ivlBigImg').alt = img.name;
+              document.getElementById('ivlBigLabel').textContent = img.name + '  (' + (idx + 1) + ' / ' + images.length + ')';
+              document.getElementById('ivlBigWrap').style.display = 'flex';
+              document.getElementById('ivlGallery').style.display = 'none';
+            }
+
+            document.getElementById('ivlPrev').addEventListener('click', function () {
+              openBig((currentIdx - 1 + images.length) % images.length);
+            });
+            document.getElementById('ivlNext').addEventListener('click', function () {
+              openBig((currentIdx + 1) % images.length);
+            });
+            document.getElementById('ivlCloseBig').addEventListener('click', function () {
+              document.getElementById('ivlBigWrap').style.display = 'none';
+              document.getElementById('ivlGallery').style.display = '';
+            });
+          }
+
+          renderGallery();
+        })
+        .catch(function (err) {
+          const body = document.getElementById('ivlBody');
+          if (body) body.innerHTML = '<div class="ivl-empty">Error: ' + escapeHtml(err.message || err) + '</div>';
+        });
+    }
 
     })();
     </script>
