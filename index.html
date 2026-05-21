@@ -2268,24 +2268,14 @@
         return true;
       });
 
-      // Show only records from the current year; rows with an empty date cell are kept.
-      // Invoice module is exempt — invoices span multiple years and should always show all records.
-      if (STATE.activeModule !== 'invoice') {
-        const currentYear = String(new Date().getFullYear());
-        const dateCol = findDateColumn(m.headers, m.rows);
-        if (dateCol) {
-          result = result.filter(function (row) {
-            const v = String(row[dateCol] || '');
-            return v === '' || v.startsWith(currentYear);
-          });
-        }
-      }
-
-      // Sort: respect the user's chosen column; default to sheet row order (newest last-filled row first).
+      // Sort: respect the user's chosen column; default to sheet row order.
+      // Invoice module: ascending (backend top = frontend top). Others: descending (newest row first).
       // Exception: received module defaults to DATE RECEIVED newest first using Date parsing
       // (handles both ISO YYYY-MM-DD and locale formats like M/D/YYYY from Google Sheets).
       let sortKey = m.sortKey || '__rowIndex';
-      let sortDir = m.sortKey ? m.sortDir : -1;
+      // Invoice module defaults to ascending sheet row order (top of sheet = top of list).
+      // All other modules default to descending (newest row first).
+      let sortDir = m.sortKey ? m.sortDir : (STATE.activeModule === 'invoice' ? 1 : -1);
       let useDateSort = false;
       if (!m.sortKey && STATE.activeModule === 'received') {
         const drHeader = m.headers.find(function (h) {
