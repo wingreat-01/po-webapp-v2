@@ -3520,6 +3520,8 @@
       $('modalMount').innerHTML = '';
       const _ac = document.getElementById('itemCodeAC');
       if (_ac) _ac.remove();
+      const _bac = document.getElementById('batchItemCodeAC');
+      if (_bac) _bac.remove();
     }
 
     // =====================================================================
@@ -3926,6 +3928,196 @@
 
       const first = $('batchBody').querySelector('.batch-cell');
       if (first) setTimeout(function () { first.focus(); }, 40);
+
+      // ── Batch Item Code Autocomplete ──────────────────────────────────────
+      // Wires a floating dropdown on every ITEM CODE cell in the batch table.
+      // Also auto-fills the ITEM DESCRIPTION cell in the same row on pick.
+      (function () {
+        // Remove any orphan dropdown from a previous batch modal
+        var _oldBatchAC = document.getElementById('batchItemCodeAC');
+        if (_oldBatchAC) _oldBatchAC.remove();
+
+        var dd = document.createElement('div');
+        dd.id = 'batchItemCodeAC';
+        dd.style.cssText = 'position:fixed;background:var(--panel);border:1px solid var(--border);' +
+                           'border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,0.5);' +
+                           'max-height:240px;overflow-y:auto;z-index:500;font-size:13px;display:none;min-width:220px;';
+        document.body.appendChild(dd);
+
+        var entries = [];      // [{code, desc, descU}]
+        var visible = [];      // current filtered slice
+        var activeAcIdx = -1;
+        var currentInput = null; // the focused ITEM CODE input
+
+        function isItemCodeField(el) {
+          return el && el.classList.contains('batch-cell') &&
+                 (el.dataset.field || '').toUpperCase().replace(/[^A-Z0-9]/g, '') === 'ITEMCODE';
+        }
+
+        function getDescCell(icEl) {
+          var tr = icEl.closest('tr');
+          if (!tr) return null;
+          var found = null;
+          tr.querySelectorAll('.batch-cell').forEach(function (c) {
+            if ((c.dataset.field || '').toUpperCase().replace(/[^A-Z0-9]/g, '') === 'ITEMDESCRIPTION') {
+              found = c;
+            }
+          });
+          return found;
+        }
+
+        function positionDD() {
+          if (!currentInput) return;
+          var r = currentInput.getBoundingClientRect();
+          dd.style.top   = (r.bottom + 2) + 'px';
+          dd.style.left  = r.left + 'px';
+          dd.style.width = Math.max(220, r.width) + 'px';
+        }
+
+        function hide() { dd.style.display = 'none'; visible = []; activeAcIdx = -1; }
+
+        function pick(s) {
+          if (!currentInput) return;
+          currentInput.value = s.code;
+          var descEl = getDescCell(currentInput);
+          if (descEl) descEl.value = s.desc;
+          // Trigger input event so batch totals / calc fields update if needed
+          currentInput.dispatchEvent(new Event('input', { bubbles: true }));
+          hide();
+        }
+
+        function highlightAC() {
+          dd.querySelectorAll('.batch-ac-item').forEach(function (el, i) {
+            el.style.background = (i === activeAcIdx) ? 'var(--row-hover)' : '';
+          });
+        }
+
+        function filterEntries(q) {
+          q = q.trim().toUpperCase();
+          if (!q) return [];
+          var startsCode = [], inCode = [], inDesc = [];
+          for (var i = 0; i < entries.length; i++) {
+            var e = entries[i];
+            if (e.code.indexOf(q) === 0)        startsCode.push(e);
+            else if (e.code.indexOf(q) !== -1)  inCode.push(e);
+            else if (e.descU.indexOf(q) !== -1) inDesc.push(e);
+            if (startsCode.length >= 8) break;
+          }
+          return startsCode.concat(inCode, inDesc).slice(0, 8);
+        }
+
+        function renderDD() {
+          if (!visible.length) { hide(); return; }
+          var html = '';
+          visible.forEach(function (s, i) {
+            var bg = (i === activeAcIdx) ? 'background:var(--row-hover);' : '';
+            html += '<div class="batch-ac-item" data-i="' + i + '" ' +
+                    'style="padding:6px 10px;cursor:pointer;border-bottom:1px solid var(--border);' + bg + '">' +
+                      '<div style="font-weight:700;color:#a5c8ff">' + escapeHtml(s.code) + '</div>' +
+                      '<div style="font-size:11px;color:var(--muted);white-space:normal">' + escapeHtml(s.desc) + '</div>' +
+                    '</div>';
+          });
+          dd.innerHTML = html;
+          positionDD();
+          dd.style.display = 'block';
+          dd.querySelectorAll('.batch-ac-item').forEach(function (el) {
+            el.addEventListener('mousedown', function (e) {
+              e.preventDefault();
+              pick(visible[parseInt(el.dataset.i, 10)]);
+            });
+            el.addEventListener('mouseenter', function () {
+              activeAcIdx = parseInt(el.dataset.i, 10);
+              highlightAC();
+            });
+          });
+        }
+
+        // Load item codes then wire events
+        fetchItemCodes(function (map) {
+          if (!Object.keys(map).length) return; // nothing to wire
+          entries = Object.keys(map).map(function (c) {
+            return { code: c, desc: map[c], descU: String(map[c]).toUpperCase() };
+          });
+
+          // Delegated focus — detect when an ITEM CODE cell gets focus
+          var batchBody = $('batchBody');
+          if (!batchBody) return;
+
+          batchBody.addEventListener('focusin', function (e) {
+            if (!isItemCodeField(e.target)) return;
+            currentInput = e.target;
+            if (currentInput.value.trim()) {
+              visible = filterEntries(currentInput.value);
+              activeAcIdx = visible.length > 0 ? 0 : -1;
+              renderDD();
+            }
+          });
+
+          batchBody.addEventListener('focusout', function (e) {
+            if (!isItemCodeField(e.target)) return;
+            setTimeout(function () {
+              // Only hide if focus moved away from the dropdown itself
+              if (!dd.contains(document.activeElement)) hide();
+            }, 160);
+          });
+
+          batchBody.addEventListener('input', function (e) {
+            if (!isItemCodeField(e.target)) return;
+            currentInput = e.target;
+            var q = currentInput.value;
+            visible = filterEntries(q);
+            activeAcIdx = visible.length > 0 ? 0 : -1;
+            renderDD();
+            // Exact-match auto-fill description
+            var exact = map[q.trim().toUpperCase()];
+            if (exact !== undefined && exact !== '') {
+              var descEl = getDescCell(currentInput);
+              if (descEl) descEl.value = exact;
+            }
+          });
+
+          batchBody.addEventListener('keydown', function (e) {
+            if (!currentInput || !isItemCodeField(e.target)) return;
+            if (dd.style.display === 'none') return;
+            if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              activeAcIdx = Math.min(visible.length - 1, activeAcIdx + 1);
+              highlightAC();
+              var item = dd.querySelector('.batch-ac-item[data-i="' + activeAcIdx + '"]');
+              if (item) item.scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              activeAcIdx = Math.max(0, activeAcIdx - 1);
+              highlightAC();
+              var item2 = dd.querySelector('.batch-ac-item[data-i="' + activeAcIdx + '"]');
+              if (item2) item2.scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'Enter' && activeAcIdx >= 0) {
+              e.preventDefault();
+              pick(visible[activeAcIdx]);
+            } else if (e.key === 'Tab' && activeAcIdx >= 0) {
+              pick(visible[activeAcIdx]);
+              // let Tab continue to next field naturally
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              e.stopPropagation();
+              hide();
+            }
+          });
+
+          // Keep dropdown positioned on scroll/resize
+          window.addEventListener('scroll', function () { if (dd.style.display !== 'none') positionDD(); }, true);
+          window.addEventListener('resize', function () { if (dd.style.display !== 'none') positionDD(); });
+        });
+
+        // Clean up dropdown when batch modal is closed
+        var origClose = window._batchACCleanup;
+        window._batchACCleanup = function () {
+          var ac = document.getElementById('batchItemCodeAC');
+          if (ac) ac.remove();
+          if (origClose) origClose();
+        };
+      })();
+      // ── end Batch Item Code Autocomplete ──────────────────────────────────
     }
 
     function submitBatch(moduleId, headers) {
