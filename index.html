@@ -3364,8 +3364,8 @@
         var _icEl = null, _idEl = null;
         document.querySelectorAll('[data-field]').forEach(function (el) {
           const k = el.dataset.field.toUpperCase().replace(/[^A-Z0-9]/g, '');
-          if (k === 'ITEMCODE') _icEl = el;
-          if (k === 'ITEMDESCRIPTION') _idEl = el;
+          if (k === 'ITEM' || k === 'ITEMCODE') _icEl = el;
+          if (k === 'ITEMDESCRIPTION' || k === 'DESCRIPTION' || k === 'DESC' || k === 'ITEMDESC' || k.indexOf('DESCRIPTION') !== -1) _idEl = el;
         });
         if (!_icEl || !_idEl) return;
 
@@ -3950,8 +3950,10 @@
         var currentInput = null; // the focused ITEM CODE input
 
         function isItemCodeField(el) {
-          return el && el.classList.contains('batch-cell') &&
-                 (el.dataset.field || '').toUpperCase().replace(/[^A-Z0-9]/g, '') === 'ITEMCODE';
+          if (!el || !el.classList.contains('batch-cell')) return false;
+          var k = (el.dataset.field || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+          // Exact match: ITEM, ITEMCODE, ITEM CODE (normalises to ITEMCODE)
+          return k === 'ITEM' || k === 'ITEMCODE';
         }
 
         function getDescCell(icEl) {
@@ -3959,7 +3961,9 @@
           if (!tr) return null;
           var found = null;
           tr.querySelectorAll('.batch-cell').forEach(function (c) {
-            if ((c.dataset.field || '').toUpperCase().replace(/[^A-Z0-9]/g, '') === 'ITEMDESCRIPTION') {
+            var _dk = (c.dataset.field || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+            if (_dk === 'ITEMDESCRIPTION' || _dk === 'DESCRIPTION' || _dk === 'DESC' ||
+                _dk === 'ITEMDESC' || _dk.indexOf('DESCRIPTION') !== -1) {
               found = c;
             }
           });
