@@ -2290,21 +2290,39 @@
         if (orderHeader) { sortKey = orderHeader; sortDir = -1; }
       }
       if (sortKey) {
-        result.sort(function (a, b) {
-          let va = a[sortKey]; let vb = b[sortKey];
-          if (va === null || va === undefined) va = '';
-          if (vb === null || vb === undefined) vb = '';
-          if (useDateSort) {
-            const ta = va ? (new Date(va).getTime() || 0) : 0;
-            const tb = vb ? (new Date(vb).getTime() || 0) : 0;
-            if (ta !== tb) return (ta - tb) * sortDir;
-          }
-          const na = parseFloat(va); const nb = parseFloat(vb);
-          if (!isNaN(na) && !isNaN(nb) && String(va).trim() !== '' && String(vb).trim() !== '' && na !== nb) {
-            return (na - nb) * sortDir;
-          }
-          return String(va).localeCompare(String(vb)) * sortDir;
-        });
+        // Invoice module with no user-chosen sort: group by invoice/shipment number (newest group first),
+        // then sort within each group by ascending __rowIndex (matching backend sheet order).
+        if (STATE.activeModule === 'invoice' && !m.sortKey) {
+          var _invHdr = m.headers.find(function (h) {
+            return h.toUpperCase().replace(/[^A-Z0-9]/g, '').indexOf('INVOICE') === 0;
+          }) || m.headers.find(function (h) {
+            return h.toUpperCase().replace(/[^A-Z0-9]/g, '').indexOf('SHIPMENT') === 0;
+          });
+          result.sort(function (a, b) {
+            if (_invHdr) {
+              var ga = String(a[_invHdr] || '').trim();
+              var gb = String(b[_invHdr] || '').trim();
+              if (ga !== gb) return gb.localeCompare(ga, undefined, { numeric: true }); // newest group first
+            }
+            return (a.__rowIndex - b.__rowIndex); // within group: ascending sheet order
+          });
+        } else {
+          result.sort(function (a, b) {
+            let va = a[sortKey]; let vb = b[sortKey];
+            if (va === null || va === undefined) va = '';
+            if (vb === null || vb === undefined) vb = '';
+            if (useDateSort) {
+              const ta = va ? (new Date(va).getTime() || 0) : 0;
+              const tb = vb ? (new Date(vb).getTime() || 0) : 0;
+              if (ta !== tb) return (ta - tb) * sortDir;
+            }
+            const na = parseFloat(va); const nb = parseFloat(vb);
+            if (!isNaN(na) && !isNaN(nb) && String(va).trim() !== '' && String(vb).trim() !== '' && na !== nb) {
+              return (na - nb) * sortDir;
+            }
+            return String(va).localeCompare(String(vb)) * sortDir;
+          });
+        }
       }
 
       // Incoming / Invoice module: filter by selected shipment or invoice number
