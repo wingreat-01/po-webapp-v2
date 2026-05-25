@@ -360,6 +360,36 @@
       .status-picker-opt.s-active { font-weight: 700; }
 
       /* ============ Column Visibility Popover ============ */
+      /* Right-click context menu on column headers (purchased module, admin only) */
+      .col-ctx-menu {
+        position: fixed; z-index: 500;
+        background: var(--panel); border: 1px solid var(--border);
+        border-radius: 7px; box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+        min-width: 180px; padding: 4px 0; user-select: none;
+        animation: ctxFadeIn 0.08s ease;
+      }
+      @keyframes ctxFadeIn { from { opacity:0; transform:scale(0.97); } to { opacity:1; transform:scale(1); } }
+      .col-ctx-title {
+        padding: 6px 14px 5px; font-size: 10px; font-weight: 700;
+        color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;
+        border-bottom: 1px solid var(--border); margin-bottom: 3px;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;
+      }
+      .col-ctx-item {
+        display: flex; align-items: center; gap: 9px;
+        padding: 8px 14px; cursor: pointer; font-size: 13px; color: var(--text);
+        transition: background 0.1s;
+      }
+      .col-ctx-item:hover { background: var(--row-hover); }
+      .col-ctx-item .col-ctx-icon { font-size: 14px; width: 16px; text-align: center; flex-shrink: 0; }
+      .col-ctx-item.danger { color: var(--danger); }
+      .col-ctx-divider { height: 1px; background: var(--border); margin: 3px 0; }
+      .col-ctx-hidden-badge {
+        display: inline-block; font-size: 10px; padding: 1px 5px; border-radius: 3px;
+        background: rgba(248,81,73,0.12); color: var(--danger);
+        border: 1px solid rgba(248,81,73,0.3); margin-left: auto; font-weight: 600;
+      }
+
       .col-vis-popover {
         position: fixed;
         background: var(--panel); border: 1px solid var(--border);
@@ -1426,7 +1456,7 @@
       }
     }
 
-    var _GAS_READS = { getRows: 1, getUsers: 1, getColVis: 1, getItemCodes: 1, listSheets: 1, getTabConfig: 1, getImages: 1 };
+    var _GAS_READS = { getRows: 1, getUsers: 1, getColVis: 1, getColHidden: 1, getItemCodes: 1, listSheets: 1, getTabConfig: 1, getImages: 1 };
     function gasRun(action, params) {
       var url = _getGasUrl();
       if (!url) return Promise.reject(new Error('Apps Script URL not configured. Open ⚙ Settings and paste your GAS deployment URL.'));
@@ -1551,7 +1581,7 @@
           loadConfig(); _migratePinIfNeeded();
           fetchItemCodes(function () {});
           _syncColVisFromSheet();
-          // Non-admins: fetch tab-disabled config from server FIRST so disabled tabs
+          _syncColHiddenFromSheet();
           // are enforced immediately — prevents bypass via incognito / fresh session.
           if (res.role !== 'admin') {
             _syncTabConfigFromSheet().then(function () {
@@ -1836,6 +1866,58 @@
     function saveColVis() {
       try { localStorage.setItem(COL_VIS_KEY, JSON.stringify(colVisConfig)); } catch(e) {}
       gasRun('saveColVis', { jsonStr: JSON.stringify(colVisConfig) }).then(function(){}).catch(function(){});
+    }
+
+    // =====================================================================
+    // ============ Column Hidden Config (admin hide from everyone) =========
+    // =====================================================================
+    // Separate from colVisConfig (which hides from non-admins only).
+    // colHiddenConfig hides a column entirely — even from admin.
+    // Scoped to 'purchased' module only. Persisted to APP_CONFIG key 'col_hidden'.
+    const COL_HIDDEN_KEY = 'po_webapp_col_hidden_v1';
+    let colHiddenConfig = {};
+    try { const _ch = localStorage.getItem(COL_HIDDEN_KEY); if (_ch) colHiddenConfig = JSON.parse(_ch) || {}; } catch(e) {}
+
+    function saveColHidden() {
+      try { localStorage.setItem(COL_HIDDEN_KEY, JSON.stringify(colHiddenConfig)); } catch(e) {}
+      gasRun('saveColHidden', { jsonStr: JSON.stringify(colHiddenConfig) }).then(function(){}).catch(function(){});
+    }
+
+    function _syncColHiddenFromSheet() {
+      gasRun('getColHidden', {})
+        .then(function (res) {
+          if (!res || !res.ok) return;
+          try {
+            const remote = JSON.parse(res.value || '{}');
+            if (JSON.stringify(remote) === JSON.stringify(colHiddenConfig)) return;
+            colHiddenConfig = remote;
+            try { localStorage.setItem(COL_HIDDEN_KEY, JSON.stringify(colHiddenConfig)); } catch(e) {}
+            applyFiltersAndRender();
+          } catch(e) {}
+        })
+        .catch(function () {});
+    }
+
+    function isColHidden(moduleId, header) {
+      return !!(colHiddenConfig[moduleId] && colHiddenConfig[moduleId][header]);
+    }
+
+    function toggleColHidden(moduleId, header) {
+      if (!colHiddenConfig[moduleId]) colHiddenConfig[moduleId] = {};
+      if (colHiddenConfig[moduleId][header]) {
+        delete colHiddenConfig[moduleId][header];
+        if (!Object.keys(colHiddenConfig[moduleId]).length) delete colHiddenConfig[moduleId];
+      } else {
+        colHiddenConfig[moduleId][header] = true;
+      }
+      saveColHidden();
+      applyFiltersAndRender();
+    }
+
+    function unhideAllCols(moduleId) {
+      delete colHiddenConfig[moduleId];
+      saveColHidden();
+      applyFiltersAndRender();
     }
 
     // Pulls the authoritative col-vis config from the sheet and re-renders if it differs.
@@ -2358,6 +2440,7 @@
           const name = String(x.h || '').trim();
           if (!name) return false;
           if (HIDDEN_COLUMNS[name.toUpperCase().replace(/[^A-Z0-9]/g, '')]) return false;
+          if (isColHidden(STATE.activeModule, x.h)) return false;
           if (!isAdmin() && isColAdminOnly(STATE.activeModule, x.h)) return false;
           if (STATE.activeModule === 'invoice') {
             const k = name.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -3082,6 +3165,101 @@
       if (pop) pop.remove();
       document.removeEventListener('click', _colVisOutsideClick);
     }
+
+    // =====================================================================
+    // ============ Column Header Right-Click Context Menu =================
+    // =====================================================================
+    // Admin-only, purchased module only.
+    // Right-click any column header → Hide / Unhide this column.
+    // "Unhide all" at the bottom reveals every hidden column at once.
+
+    function closeColCtxMenu() {
+      const m = document.getElementById('colCtxMenu');
+      if (m) m.remove();
+      document.removeEventListener('click', _colCtxOutside);
+      document.removeEventListener('contextmenu', _colCtxOutside);
+      document.removeEventListener('keydown', _colCtxEsc);
+    }
+
+    function _colCtxOutside(e) {
+      const m = document.getElementById('colCtxMenu');
+      if (m && !m.contains(e.target)) closeColCtxMenu();
+    }
+
+    function _colCtxEsc(e) {
+      if (e.key === 'Escape') closeColCtxMenu();
+    }
+
+    function openColCtxMenu(e, colName) {
+      e.preventDefault();
+      e.stopPropagation();
+      closeColCtxMenu();
+
+      const moduleId = STATE.activeModule;
+      const hidden = isColHidden(moduleId, colName);
+      const hiddenCols = colHiddenConfig[moduleId] ? Object.keys(colHiddenConfig[moduleId]) : [];
+
+      const menu = document.createElement('div');
+      menu.id = 'colCtxMenu';
+      menu.className = 'col-ctx-menu';
+
+      let html = '<div class="col-ctx-title">' + escapeHtml(colName) + '</div>';
+
+      if (hidden) {
+        html += '<div class="col-ctx-item" data-action="unhide">'
+          + '<span class="col-ctx-icon">👁</span>Unhide this column'
+          + '</div>';
+      } else {
+        html += '<div class="col-ctx-item danger" data-action="hide">'
+          + '<span class="col-ctx-icon">🙈</span>Hide this column'
+          + '</div>';
+      }
+
+      if (hiddenCols.length > 0) {
+        html += '<div class="col-ctx-divider"></div>';
+        html += '<div class="col-ctx-item" data-action="unhide-all">'
+          + '<span class="col-ctx-icon">✅</span>Unhide all'
+          + ' <span class="col-ctx-hidden-badge">' + hiddenCols.length + ' hidden</span>'
+          + '</div>';
+      }
+
+      menu.innerHTML = html;
+
+      // Position at cursor, keep within viewport
+      document.body.appendChild(menu);
+      const mw = menu.offsetWidth, mh = menu.offsetHeight;
+      let x = e.clientX, y = e.clientY;
+      if (x + mw > window.innerWidth  - 8) x = window.innerWidth  - mw - 8;
+      if (y + mh > window.innerHeight - 8) y = window.innerHeight - mh - 8;
+      menu.style.left = x + 'px';
+      menu.style.top  = y + 'px';
+
+      menu.querySelectorAll('.col-ctx-item[data-action]').forEach(function (item) {
+        item.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          const action = item.dataset.action;
+          closeColCtxMenu();
+          if (action === 'hide')        toggleColHidden(moduleId, colName);
+          else if (action === 'unhide') toggleColHidden(moduleId, colName);
+          else if (action === 'unhide-all') unhideAllCols(moduleId);
+        });
+      });
+
+      setTimeout(function () {
+        document.addEventListener('click',       _colCtxOutside);
+        document.addEventListener('contextmenu', _colCtxOutside);
+        document.addEventListener('keydown',     _colCtxEsc);
+      }, 0);
+    }
+
+    // Delegated contextmenu listener on tableContainer — purchased module + admin only
+    document.getElementById('tableContainer').addEventListener('contextmenu', function (e) {
+      if (!isAdmin()) return;
+      if (STATE.activeModule !== 'purchased') return;
+      const th = e.target.closest('thead th[data-col]');
+      if (!th) return;
+      openColCtxMenu(e, th.dataset.col);
+    });
 
     _wireGlobalSearch();
     $('reloadBtn').addEventListener('click', function () {
@@ -5239,6 +5417,7 @@
         loadConfig(); _migratePinIfNeeded();
         fetchItemCodes(function () {});
         _syncColVisFromSheet();
+        _syncColHiddenFromSheet();
         // Same guard as doLogin: non-admins must have server tab config before accessing modules
         if (_sess.role !== 'admin') {
           _syncTabConfigFromSheet().then(function () {

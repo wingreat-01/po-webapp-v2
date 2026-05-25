@@ -76,6 +76,7 @@ function doGet(e) {
       break;
     case 'getUsers':     result = getUsers();             break;
     case 'getColVis':    result = getColVis();            break;
+    case 'getColHidden': result = getColHidden();         break;
     case 'getTabConfig': result = getTabConfig();         break;
     case 'getItemCodes': result = getItemCodes();         break;
     case 'listSheets':   result = listSheets();           break;
@@ -105,7 +106,7 @@ function doPost(e) {
   if (!session) return jsonResponse_({ success: false, error: 'Auth required', authRequired: true });
 
   // Admin-only writes
-  var ADMIN_ONLY = { saveUser: 1, deleteUser: 1, saveColVis: 1, saveTabConfig: 1 };
+  var ADMIN_ONLY = { saveUser: 1, deleteUser: 1, saveColVis: 1, saveColHidden: 1, saveTabConfig: 1 };
   if (ADMIN_ONLY[body.action] && session.r !== 'admin') {
     return jsonResponse_({ success: false, error: 'Admin role required', adminRequired: true });
   }
@@ -119,6 +120,7 @@ function doPost(e) {
     case 'saveUser':       result = saveUser(body.username, body.password, body.role);                        break;
     case 'deleteUser':     result = deleteUser(body.username);                                                break;
     case 'saveColVis':     result = saveColVis(body.jsonStr);                                                 break;
+    case 'saveColHidden':  result = saveColHidden(body.jsonStr);                                              break;
     case 'saveTabConfig':  result = saveTabConfig(body.jsonStr);                                              break;
     case 'saveImage':      result = saveImage(body.sheetName, body.rowIndex, body.name, body.base64, body.mimeType); break;
     case 'getImageData':   result = getImageData(body.imageId);                                                      break;
@@ -614,6 +616,59 @@ function saveColVis(jsonStr) {
       }
     }
     sheet.appendRow(['col_vis', jsonStr]);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
+/**
+ * Reads the column-hidden config JSON from the APP_CONFIG tab.
+ * This stores columns that are fully hidden (even from admin) per module.
+ * Returns { ok: true, value: '{}' } if the key doesn't exist yet.
+ */
+function getColHidden() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('APP_CONFIG');
+    if (!sheet) return { ok: true, value: '{}' };
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return { ok: true, value: '{}' };
+    const data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+    for (let i = 0; i < data.length; i++) {
+      if (String(data[i][0]).trim() === 'col_hidden') {
+        return { ok: true, value: String(data[i][1] || '{}') };
+      }
+    }
+    return { ok: true, value: '{}' };
+  } catch (e) {
+    return { ok: false, error: e.toString() };
+  }
+}
+
+/**
+ * Persists the column-hidden config JSON to the APP_CONFIG tab (key: col_hidden).
+ * Creates the tab with headers if it doesn't exist.
+ */
+function saveColHidden(jsonStr) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName('APP_CONFIG');
+    if (!sheet) {
+      sheet = ss.insertSheet('APP_CONFIG');
+      sheet.appendRow(['key', 'value']);
+    }
+    const lastRow = sheet.getLastRow();
+    if (lastRow >= 2) {
+      const keys = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      for (let i = 0; i < keys.length; i++) {
+        if (String(keys[i][0]).trim() === 'col_hidden') {
+          sheet.getRange(i + 2, 2).setValue(jsonStr);
+          return { success: true };
+        }
+      }
+    }
+    sheet.appendRow(['col_hidden', jsonStr]);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.toString() };
