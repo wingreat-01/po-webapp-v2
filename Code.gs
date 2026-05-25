@@ -75,8 +75,8 @@ function doGet(e) {
       result = getRows(p.sheetName);
       break;
     case 'getUsers':     result = getUsers();             break;
-    case 'getColHidden': result = getColHidden();         break;
     case 'getColVis':    result = getColVis();            break;
+    case 'getColHidden': result = getColHidden();         break;
     case 'getTabConfig': result = getTabConfig();         break;
     case 'getItemCodes': result = getItemCodes();         break;
     case 'listSheets':   result = listSheets();           break;
@@ -120,7 +120,7 @@ function doPost(e) {
     case 'saveUser':       result = saveUser(body.username, body.password, body.role);                        break;
     case 'deleteUser':     result = deleteUser(body.username);                                                break;
     case 'saveColVis':     result = saveColVis(body.jsonStr);                                                 break;
-    case 'saveColHidden':  result = saveColHidden(body.jsonStr);                                                 break;
+    case 'saveColHidden':  result = saveColHidden(body.jsonStr);                                              break;
     case 'saveTabConfig':  result = saveTabConfig(body.jsonStr);                                              break;
     case 'saveImage':      result = saveImage(body.sheetName, body.rowIndex, body.name, body.base64, body.mimeType); break;
     case 'getImageData':   result = getImageData(body.imageId);                                                      break;
@@ -624,7 +624,6 @@ function saveColVis(jsonStr) {
 
 /**
  * Reads the column-hidden config JSON from APP_CONFIG (key: col_hidden).
- * Columns in this config are fully hidden from everyone, including admin.
  */
 function getColHidden() {
   try {
@@ -635,14 +634,10 @@ function getColHidden() {
     if (lastRow < 2) return { ok: true, value: '{}' };
     const data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
     for (let i = 0; i < data.length; i++) {
-      if (String(data[i][0]).trim() === 'col_hidden') {
-        return { ok: true, value: String(data[i][1] || '{}') };
-      }
+      if (String(data[i][0]).trim() === 'col_hidden') return { ok: true, value: String(data[i][1] || '{}') };
     }
     return { ok: true, value: '{}' };
-  } catch (e) {
-    return { ok: false, error: e.toString() };
-  }
+  } catch (e) { return { ok: false, error: e.toString() }; }
 }
 
 /**
@@ -652,25 +647,17 @@ function saveColHidden(jsonStr) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let sheet = ss.getSheetByName('APP_CONFIG');
-    if (!sheet) {
-      sheet = ss.insertSheet('APP_CONFIG');
-      sheet.appendRow(['key', 'value']);
-    }
+    if (!sheet) { sheet = ss.insertSheet('APP_CONFIG'); sheet.appendRow(['key', 'value']); }
     const lastRow = sheet.getLastRow();
     if (lastRow >= 2) {
       const keys = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
       for (let i = 0; i < keys.length; i++) {
-        if (String(keys[i][0]).trim() === 'col_hidden') {
-          sheet.getRange(i + 2, 2).setValue(jsonStr);
-          return { success: true };
-        }
+        if (String(keys[i][0]).trim() === 'col_hidden') { sheet.getRange(i + 2, 2).setValue(jsonStr); return { success: true }; }
       }
     }
     sheet.appendRow(['col_hidden', jsonStr]);
     return { success: true };
-  } catch (e) {
-    return { success: false, error: e.toString() };
-  }
+  } catch (e) { return { success: false, error: e.toString() }; }
 }
  * Expects row 1 to be a header row; data starts at row 2.
  * Col A = Item Code, Col B = Description.

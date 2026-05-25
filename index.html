@@ -347,31 +347,21 @@
         display: inline-flex; align-items: center; gap: 5px;
         padding: 3px 9px 3px 7px; border-radius: 20px; cursor: pointer;
         font-size: 11px; color: var(--muted); user-select: none;
-        border: 1px solid transparent;
-        background: transparent;
+        border: 1px solid transparent; background: transparent;
         transition: background 0.12s, border-color 0.12s, color 0.12s;
         white-space: nowrap;
       }
-      .status-filter-chip:hover {
-        background: var(--row-hover);
-        border-color: var(--border);
-        color: var(--text);
-      }
-      .status-filter-chip.active {
-        color: var(--text);
-        border-color: var(--border);
-        background: var(--panel-2);
-      }
-      .status-filter-chip.active.sf-received  { border-color: #3fb950; background: rgba(63,185,80,0.12);  color: #3fb950; }
-      .status-filter-chip.active.sf-partial   { border-color: #f0c000; background: rgba(240,192,0,0.12);  color: #f0c000; }
-      .status-filter-chip.active.sf-transit   { border-color: #D4641E; background: rgba(212,100,30,0.12); color: #D4641E; }
-      .status-filter-chip.active.sf-confirmed { border-color: #79c0ff; background: rgba(121,192,255,0.12);color: #79c0ff; }
-      .status-filter-chip.active.sf-none      { border-color: #8b949e; background: rgba(139,148,158,0.12);color: #8b949e; }
+      .status-filter-chip:hover { background: var(--row-hover); border-color: var(--border); color: var(--text); }
+      .status-filter-chip.active { color: var(--text); border-color: var(--border); background: var(--panel-2); }
+      .status-filter-chip.active.sf-received  { border-color: #3fb950; background: rgba(63,185,80,0.12);   color: #3fb950; }
+      .status-filter-chip.active.sf-partial   { border-color: #f0c000; background: rgba(240,192,0,0.12);   color: #f0c000; }
+      .status-filter-chip.active.sf-transit   { border-color: #D4641E; background: rgba(212,100,30,0.12);  color: #D4641E; }
+      .status-filter-chip.active.sf-confirmed { border-color: #79c0ff; background: rgba(121,192,255,0.12); color: #79c0ff; }
+      .status-filter-chip.active.sf-none      { border-color: #8b949e; background: rgba(139,148,158,0.12); color: #8b949e; }
       .status-filter-clear {
         font-size: 10px; padding: 2px 7px; border-radius: 10px; cursor: pointer;
         color: var(--danger); border: 1px solid rgba(248,81,73,0.4);
-        background: rgba(248,81,73,0.08); font-weight: 600;
-        transition: background 0.12s;
+        background: rgba(248,81,73,0.08); font-weight: 600; transition: background 0.12s;
       }
       .status-filter-clear:hover { background: rgba(248,81,73,0.18); }
 
@@ -1397,7 +1387,7 @@
         shipmentFilter: '',
         invoiceTab: '',
         subTabData: {},
-        statusFilter: new Set(), // active status filters for purchased module
+        statusFilter: new Set(),
       };
     }
 
@@ -1912,43 +1902,28 @@
       try { localStorage.setItem(COL_HIDDEN_KEY, JSON.stringify(colHiddenConfig)); } catch(e) {}
       gasRun('saveColHidden', { jsonStr: JSON.stringify(colHiddenConfig) }).then(function(){}).catch(function(){});
     }
-
     function _syncColHiddenFromSheet() {
-      gasRun('getColHidden', {})
-        .then(function (res) {
-          if (!res || !res.ok) return;
-          try {
-            const remote = JSON.parse(res.value || '{}');
-            if (JSON.stringify(remote) === JSON.stringify(colHiddenConfig)) return;
-            colHiddenConfig = remote;
-            try { localStorage.setItem(COL_HIDDEN_KEY, JSON.stringify(colHiddenConfig)); } catch(e) {}
-            applyFiltersAndRender();
-          } catch(e) {}
-        })
-        .catch(function () {});
+      gasRun('getColHidden', {}).then(function (res) {
+        if (!res || !res.ok) return;
+        try {
+          const remote = JSON.parse(res.value || '{}');
+          if (JSON.stringify(remote) === JSON.stringify(colHiddenConfig)) return;
+          colHiddenConfig = remote;
+          try { localStorage.setItem(COL_HIDDEN_KEY, JSON.stringify(colHiddenConfig)); } catch(e) {}
+          applyFiltersAndRender();
+        } catch(e) {}
+      }).catch(function () {});
     }
-
-    function isColHidden(moduleId, header) {
-      return !!(colHiddenConfig[moduleId] && colHiddenConfig[moduleId][header]);
-    }
-
+    function isColHidden(moduleId, header) { return !!(colHiddenConfig[moduleId] && colHiddenConfig[moduleId][header]); }
     function toggleColHidden(moduleId, header) {
       if (!colHiddenConfig[moduleId]) colHiddenConfig[moduleId] = {};
       if (colHiddenConfig[moduleId][header]) {
         delete colHiddenConfig[moduleId][header];
         if (!Object.keys(colHiddenConfig[moduleId]).length) delete colHiddenConfig[moduleId];
-      } else {
-        colHiddenConfig[moduleId][header] = true;
-      }
-      saveColHidden();
-      applyFiltersAndRender();
+      } else { colHiddenConfig[moduleId][header] = true; }
+      saveColHidden(); applyFiltersAndRender();
     }
-
-    function unhideAllCols(moduleId) {
-      delete colHiddenConfig[moduleId];
-      saveColHidden();
-      applyFiltersAndRender();
-    }
+    function unhideAllCols(moduleId) { delete colHiddenConfig[moduleId]; saveColHidden(); applyFiltersAndRender(); }
 
     // Pulls the authoritative col-vis config from the sheet and re-renders if it differs.
     function _syncColVisFromSheet() {
@@ -2377,7 +2352,6 @@
           if (v === null || v === undefined) return false;
           if (String(v).toLowerCase().indexOf(f.toLowerCase()) === -1) return false;
         }
-        // Status filter — purchased module only
         if (STATE.activeModule === 'purchased' && m.statusFilter && m.statusFilter.size > 0) {
           const statusHdr = m.headers.find(function (h) {
             return h.toUpperCase().replace(/[^A-Z0-9]/g, '') === 'STATUS';
@@ -2775,64 +2749,42 @@
     // ============ Status Filter Bar (Purchased module) ===================
     // =====================================================================
     const STATUS_FILTER_OPTIONS = [
-      { value: 'Received',           cls: 's-received',  sfCls: 'sf-received',  label: 'Received'          },
-      { value: 'Partially Received', cls: 's-partial',   sfCls: 'sf-partial',   label: 'Partially Received'},
-      { value: 'In-Transit',         cls: 's-transit',   sfCls: 'sf-transit',   label: 'In-Transit'        },
-      { value: 'Confirmed',          cls: 's-confirmed', sfCls: 'sf-confirmed', label: 'Confirmed'         },
-      { value: '',                   cls: 's-default',   sfCls: 'sf-none',      label: 'None'              },
+      { value: 'Received',           cls: 's-received',  sfCls: 'sf-received',  label: 'Received'           },
+      { value: 'Partially Received', cls: 's-partial',   sfCls: 'sf-partial',   label: 'Partially Received' },
+      { value: 'In-Transit',         cls: 's-transit',   sfCls: 'sf-transit',   label: 'In-Transit'         },
+      { value: 'Confirmed',          cls: 's-confirmed', sfCls: 'sf-confirmed', label: 'Confirmed'          },
+      { value: '',                   cls: 's-default',   sfCls: 'sf-none',      label: 'None'               },
     ];
 
     function renderStatusFilterBar() {
       const bar = $('statusFilterBar');
       if (!bar) return;
-
-      // Only show on purchased module
       if (STATE.activeModule !== 'purchased') {
-        bar.innerHTML = '';
-        bar.style.display = 'none';
-        return;
+        bar.innerHTML = ''; bar.style.display = 'none'; return;
       }
       bar.style.display = 'inline-flex';
-
       const m = activeMod();
       const sf = m.statusFilter;
       const anyActive = sf && sf.size > 0;
-
       let html = '';
       STATUS_FILTER_OPTIONS.forEach(function (opt) {
         const active = sf && sf.has(opt.value);
         html += '<span class="status-filter-chip ' + opt.sfCls + (active ? ' active' : '') + '" data-sfval="' + escapeHtml(opt.value) + '" title="Filter: ' + escapeHtml(opt.label) + '">'
-          + '<span class="status-dot ' + opt.cls + '"></span>'
-          + escapeHtml(opt.label)
-          + '</span>';
+          + '<span class="status-dot ' + opt.cls + '"></span>' + escapeHtml(opt.label) + '</span>';
       });
-
-      if (anyActive) {
-        html += '<span class="status-filter-clear" id="statusFilterClear" title="Clear status filter">✕ Clear</span>';
-      }
-
+      if (anyActive) html += '<span class="status-filter-clear" id="statusFilterClear" title="Clear status filter">✕ Clear</span>';
       bar.innerHTML = html;
-
       bar.querySelectorAll('.status-filter-chip').forEach(function (chip) {
         chip.addEventListener('click', function () {
           const val = chip.dataset.sfval;
           if (!m.statusFilter) m.statusFilter = new Set();
-          if (m.statusFilter.has(val)) {
-            m.statusFilter.delete(val);
-          } else {
-            m.statusFilter.add(val);
-          }
+          if (m.statusFilter.has(val)) m.statusFilter.delete(val);
+          else m.statusFilter.add(val);
           applyFiltersAndRender();
         });
       });
-
       const clearBtn = $('statusFilterClear');
-      if (clearBtn) {
-        clearBtn.addEventListener('click', function () {
-          m.statusFilter = new Set();
-          applyFiltersAndRender();
-        });
-      }
+      if (clearBtn) clearBtn.addEventListener('click', function () { m.statusFilter = new Set(); applyFiltersAndRender(); });
     }
 
     // =====================================================================
@@ -3279,27 +3231,18 @@
       document.removeEventListener('contextmenu', _colCtxOutside);
       document.removeEventListener('keydown', _colCtxEsc);
     }
-    function _colCtxOutside(e) {
-      const m = document.getElementById('colCtxMenu');
-      if (m && !m.contains(e.target)) closeColCtxMenu();
-    }
+    function _colCtxOutside(e) { const m = document.getElementById('colCtxMenu'); if (m && !m.contains(e.target)) closeColCtxMenu(); }
     function _colCtxEsc(e) { if (e.key === 'Escape') closeColCtxMenu(); }
-
     function openColCtxMenu(e, colName) {
-      e.preventDefault(); e.stopPropagation();
-      closeColCtxMenu();
+      e.preventDefault(); e.stopPropagation(); closeColCtxMenu();
       const moduleId = STATE.activeModule;
       const hidden = isColHidden(moduleId, colName);
       const hiddenCols = colHiddenConfig[moduleId] ? Object.keys(colHiddenConfig[moduleId]) : [];
       const menu = document.createElement('div');
-      menu.id = 'colCtxMenu';
-      menu.className = 'col-ctx-menu';
+      menu.id = 'colCtxMenu'; menu.className = 'col-ctx-menu';
       let html = '<div class="col-ctx-title">' + escapeHtml(colName) + '</div>';
-      if (hidden) {
-        html += '<div class="col-ctx-item" data-action="unhide"><span class="col-ctx-icon">👁</span>Unhide this column</div>';
-      } else {
-        html += '<div class="col-ctx-item danger" data-action="hide"><span class="col-ctx-icon">🙈</span>Hide this column</div>';
-      }
+      if (hidden) html += '<div class="col-ctx-item" data-action="unhide"><span class="col-ctx-icon">👁</span>Unhide this column</div>';
+      else        html += '<div class="col-ctx-item danger" data-action="hide"><span class="col-ctx-icon">🙈</span>Hide this column</div>';
       if (hiddenCols.length > 0) {
         html += '<div class="col-ctx-divider"></div>';
         html += '<div class="col-ctx-item" data-action="unhide-all"><span class="col-ctx-icon">✅</span>Unhide all <span class="col-ctx-hidden-badge">' + hiddenCols.length + ' hidden</span></div>';
@@ -3314,8 +3257,7 @@
       menu.querySelectorAll('.col-ctx-item[data-action]').forEach(function (item) {
         item.addEventListener('click', function (ev) {
           ev.stopPropagation();
-          const action = item.dataset.action;
-          closeColCtxMenu();
+          const action = item.dataset.action; closeColCtxMenu();
           if (action === 'hide' || action === 'unhide') toggleColHidden(moduleId, colName);
           else if (action === 'unhide-all') unhideAllCols(moduleId);
         });
@@ -3326,10 +3268,8 @@
         document.addEventListener('keydown', _colCtxEsc);
       }, 0);
     }
-
     document.getElementById('tableContainer').addEventListener('contextmenu', function (e) {
-      if (!isAdmin()) return;
-      if (STATE.activeModule !== 'purchased') return;
+      if (!isAdmin() || STATE.activeModule !== 'purchased') return;
       const th = e.target.closest('thead th[data-col]');
       if (!th) return;
       openColCtxMenu(e, th.dataset.col);
@@ -3342,7 +3282,7 @@
     });
     $('colVisBtn').addEventListener('click', function (e) { e.stopPropagation(); openColVisPopover(); });
     $('addBtn').addEventListener('click', function () {
-      if (STATE.activeModule === 'invoice' || STATE.activeModule === 'incoming') openBatchModal(STATE.activeModule);
+      if (STATE.activeModule === 'invoice' || STATE.activeModule === 'incoming' || STATE.activeModule === 'purchased') openBatchModal(STATE.activeModule);
       else openModal('add');
     });
 
@@ -3886,20 +3826,22 @@
         + '<table class="batch-table"><thead><tr>' + thHtml + '</tr></thead>'
         + '<tbody id="batchBody">' + tbHtml + '</tbody>'
         + '</table>'
-        + '<div style="display:flex;justify-content:flex-end;align-items:center;gap:18px;padding:10px 16px;border-top:2px solid var(--accent);background:var(--panel-2);">'
-        + '<div style="display:flex;align-items:center;gap:8px;">'
-        + '<label for="batchFreight" style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;">Freight:</label>'
-        + '<input id="batchFreight" type="text" inputmode="decimal" placeholder="0.00" style="width:130px;padding:5px 10px;background:var(--panel);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:13px;font-family:inherit;text-align:right;">'
-        + '</div>'
-        + '<div style="display:flex;align-items:center;gap:8px;padding-left:14px;border-left:1px solid var(--border);">'
-        + '<span style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;">Total USD:</span>'
-        + '<span id="batchSubtotal" style="font-size:13px;font-weight:600;color:var(--text);min-width:120px;text-align:right;font-family:inherit;">0.0000</span>'
-        + '</div>'
-        + '<div style="display:flex;align-items:center;gap:8px;padding-left:14px;border-left:2px solid var(--accent);">'
-        + '<span style="font-size:13px;font-weight:700;color:var(--success);text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;">Grand Total:</span>'
-        + '<span id="batchGrandTotal" style="font-size:15px;font-weight:800;color:var(--success);min-width:130px;text-align:right;font-family:inherit;">0.00</span>'
-        + '</div>'
-        + '</div>'
+        + (moduleId !== 'purchased'
+          ? '<div style="display:flex;justify-content:flex-end;align-items:center;gap:18px;padding:10px 16px;border-top:2px solid var(--accent);background:var(--panel-2);">'
+            + '<div style="display:flex;align-items:center;gap:8px;">'
+            + '<label for="batchFreight" style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;">Freight:</label>'
+            + '<input id="batchFreight" type="text" inputmode="decimal" placeholder="0.00" style="width:130px;padding:5px 10px;background:var(--panel);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:13px;font-family:inherit;text-align:right;">'
+            + '</div>'
+            + '<div style="display:flex;align-items:center;gap:8px;padding-left:14px;border-left:1px solid var(--border);">'
+            + '<span style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;">Total USD:</span>'
+            + '<span id="batchSubtotal" style="font-size:13px;font-weight:600;color:var(--text);min-width:120px;text-align:right;font-family:inherit;">0.0000</span>'
+            + '</div>'
+            + '<div style="display:flex;align-items:center;gap:8px;padding-left:14px;border-left:2px solid var(--accent);">'
+            + '<span style="font-size:13px;font-weight:700;color:var(--success);text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;">Grand Total:</span>'
+            + '<span id="batchGrandTotal" style="font-size:15px;font-weight:800;color:var(--success);min-width:130px;text-align:right;font-family:inherit;">0.00</span>'
+            + '</div>'
+            + '</div>'
+          : '')
         + '</div>'
         + '<div class="modal-footer" style="justify-content:flex-start">'
         + '<button class="btn" id="batchAddRowBtn">+ Add Row</button>'
@@ -3951,8 +3893,9 @@
         updateBatchTotals();
       });
 
-      // ── Running totals ─────────────────────────────────────────────────────
+      // ── Running totals (invoice / incoming only — not purchased) ──────────
       function updateBatchTotals() {
+        if (moduleId === 'purchased') return;
         var subtotal = 0;
         $('batchBody').querySelectorAll('tr').forEach(function (tr) {
           tr.querySelectorAll('.batch-cell').forEach(function (c) {
