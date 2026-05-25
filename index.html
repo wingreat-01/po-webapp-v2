@@ -338,33 +338,6 @@
       td.status-cell { cursor: pointer; }
       td.status-cell:hover .status-dot { transform: scale(1.4); }
 
-      /* Status filter bar — purchased module */
-      .status-filter-bar {
-        display: inline-flex; align-items: center; gap: 6px;
-        flex-wrap: wrap; margin-left: auto;
-      }
-      .status-filter-chip {
-        display: inline-flex; align-items: center; gap: 5px;
-        padding: 3px 9px 3px 7px; border-radius: 20px; cursor: pointer;
-        font-size: 11px; color: var(--muted); user-select: none;
-        border: 1px solid transparent; background: transparent;
-        transition: background 0.12s, border-color 0.12s, color 0.12s;
-        white-space: nowrap;
-      }
-      .status-filter-chip:hover { background: var(--row-hover); border-color: var(--border); color: var(--text); }
-      .status-filter-chip.active { color: var(--text); border-color: var(--border); background: var(--panel-2); }
-      .status-filter-chip.active.sf-received  { border-color: #3fb950; background: rgba(63,185,80,0.12);   color: #3fb950; }
-      .status-filter-chip.active.sf-partial   { border-color: #f0c000; background: rgba(240,192,0,0.12);   color: #f0c000; }
-      .status-filter-chip.active.sf-transit   { border-color: #D4641E; background: rgba(212,100,30,0.12);  color: #D4641E; }
-      .status-filter-chip.active.sf-confirmed { border-color: #79c0ff; background: rgba(121,192,255,0.12); color: #79c0ff; }
-      .status-filter-chip.active.sf-none      { border-color: #8b949e; background: rgba(139,148,158,0.12); color: #8b949e; }
-      .status-filter-clear {
-        font-size: 10px; padding: 2px 7px; border-radius: 10px; cursor: pointer;
-        color: var(--danger); border: 1px solid rgba(248,81,73,0.4);
-        background: rgba(248,81,73,0.08); font-weight: 600; transition: background 0.12s;
-      }
-      .status-filter-clear:hover { background: rgba(248,81,73,0.18); }
-
       .status-picker {
         position: fixed;
         background: var(--panel);
@@ -387,36 +360,6 @@
       .status-picker-opt.s-active { font-weight: 700; }
 
       /* ============ Column Visibility Popover ============ */
-      /* Right-click context menu on column headers (purchased module, admin only) */
-      .col-ctx-menu {
-        position: fixed; z-index: 500;
-        background: var(--panel); border: 1px solid var(--border);
-        border-radius: 7px; box-shadow: 0 6px 20px rgba(0,0,0,0.5);
-        min-width: 180px; padding: 4px 0; user-select: none;
-        animation: ctxFadeIn 0.08s ease;
-      }
-      @keyframes ctxFadeIn { from { opacity:0; transform:scale(0.97); } to { opacity:1; transform:scale(1); } }
-      .col-ctx-title {
-        padding: 6px 14px 5px; font-size: 10px; font-weight: 700;
-        color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;
-        border-bottom: 1px solid var(--border); margin-bottom: 3px;
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;
-      }
-      .col-ctx-item {
-        display: flex; align-items: center; gap: 9px;
-        padding: 8px 14px; cursor: pointer; font-size: 13px; color: var(--text);
-        transition: background 0.1s;
-      }
-      .col-ctx-item:hover { background: var(--row-hover); }
-      .col-ctx-item .col-ctx-icon { font-size: 14px; width: 16px; text-align: center; flex-shrink: 0; }
-      .col-ctx-item.danger { color: var(--danger); }
-      .col-ctx-divider { height: 1px; background: var(--border); margin: 3px 0; }
-      .col-ctx-hidden-badge {
-        display: inline-block; font-size: 10px; padding: 1px 5px; border-radius: 3px;
-        background: rgba(248,81,73,0.12); color: var(--danger);
-        border: 1px solid rgba(248,81,73,0.3); margin-left: auto; font-weight: 600;
-      }
-
       .col-vis-popover {
         position: fixed;
         background: var(--panel); border: 1px solid var(--border);
@@ -1063,6 +1006,125 @@
         border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
         border-radius: 0 0 2px 0; opacity: 0.5;
       }
+      /* ============ Generate PO Modal ============ */
+      .gen-po-backdrop {
+        position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+        z-index: 400; display: flex; align-items: center; justify-content: center;
+        animation: fadeIn 0.15s ease;
+      }
+      .gen-po-dialog {
+        background: var(--panel); border: 1px solid var(--border);
+        border-radius: 10px; box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+        width: min(480px, 94vw); padding: 28px 28px 24px;
+        display: flex; flex-direction: column; gap: 16px;
+      }
+      .gen-po-dialog h3 {
+        margin: 0; font-size: 16px; font-weight: 700; color: var(--text);
+        display: flex; align-items: center; gap: 10px;
+      }
+      .gen-po-input-row {
+        display: flex; gap: 10px; align-items: center;
+      }
+      .gen-po-input {
+        flex: 1; padding: 9px 12px; background: var(--panel-2);
+        border: 1px solid var(--border); border-radius: 6px;
+        color: var(--text); font-size: 14px; font-family: inherit;
+        outline: none; transition: border-color 0.15s;
+      }
+      .gen-po-input:focus { border-color: var(--accent); }
+      .gen-po-hint { font-size: 12px; color: var(--muted); }
+      .gen-po-error { font-size: 12px; color: var(--danger); font-weight: 600; display: none; }
+      .gen-po-footer { display: flex; justify-content: flex-end; gap: 10px; }
+
+      /* ============ PO Form Preview ============ */
+      .po-form-backdrop {
+        position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+        z-index: 450; display: flex; flex-direction: column;
+        align-items: center; overflow-y: auto; padding: 24px 0 40px;
+      }
+      .po-form-toolbar {
+        display: flex; align-items: center; gap: 12px;
+        width: min(794px, 96vw); margin-bottom: 16px; flex-shrink: 0;
+      }
+      .po-form-toolbar-title {
+        flex: 1; font-size: 14px; font-weight: 600; color: #fff;
+      }
+      .po-form-wrap {
+        background: #fff; color: #000;
+        width: min(794px, 96vw);
+        padding: 48px 56px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 12px;
+        box-sizing: border-box;
+      }
+      .po-header-row {
+        display: flex; justify-content: space-between; align-items: flex-start;
+        margin-bottom: 20px;
+      }
+      .po-company { font-size: 13px; font-weight: 700; letter-spacing: 0.3px; color: #000; }
+      .po-title-block { text-align: right; }
+      .po-title { font-size: 28px; font-weight: 900; color: #000; letter-spacing: 1px; line-height: 1; }
+      .po-meta-grid {
+        display: grid; grid-template-columns: 1fr 1fr;
+        gap: 6px 0; margin-bottom: 24px; align-items: center;
+      }
+      .po-meta-left { display: flex; align-items: center; gap: 8px; }
+      .po-meta-right { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+      .po-meta-label { font-size: 13px; color: #000; white-space: nowrap; }
+      .po-meta-value {
+        border-bottom: 1.5px solid #555; min-width: 160px; height: 20px;
+        font-size: 13px; padding: 0 4px; display: inline-block;
+        color: #000; font-weight: 600;
+      }
+      .po-items-table {
+        width: 100%; border-collapse: collapse; margin-bottom: 20px;
+      }
+      .po-items-table th {
+        background: #555; color: #fff; font-size: 11px; font-weight: 700;
+        text-align: center; padding: 8px 6px; border: 1px solid #555;
+        text-transform: uppercase; letter-spacing: 0.3px;
+      }
+      .po-items-table td {
+        border: 1px solid #aaa; padding: 7px 6px;
+        font-size: 11px; color: #000; vertical-align: top;
+        min-height: 22px;
+      }
+      .po-items-table td.center { text-align: center; }
+      .po-items-table td.right { text-align: right; }
+      .po-items-table tr:nth-child(even) td { background: #fafafa; }
+      .po-comments-label {
+        background: #555; color: #fff; font-size: 11px; font-weight: 700;
+        padding: 7px 10px; margin-bottom: 0;
+      }
+      .po-comments-box {
+        border: 1px solid #aaa; border-top: none;
+        min-height: 80px; padding: 8px 10px; font-size: 11px;
+        color: #000; white-space: pre-wrap; margin-bottom: 32px;
+      }
+      .po-sigs {
+        display: flex; justify-content: space-between; align-items: flex-end;
+        margin-top: 16px;
+      }
+      .po-sig-block { display: flex; flex-direction: column; gap: 4px; width: 44%; }
+      .po-sig-line { border-bottom: 1.5px solid #000; width: 100%; height: 28px; }
+      .po-sig-labels { display: flex; gap: 32px; font-size: 11px; font-weight: 700; color: #000; }
+
+      /* ============ Print ============ */
+      @media print {
+        body > *:not(#poFormPrintRoot) { display: none !important; }
+        #poFormPrintRoot {
+          position: static !important; background: #fff !important;
+          padding: 0 !important; margin: 0 !important;
+          overflow: visible !important;
+        }
+        .po-form-toolbar { display: none !important; }
+        .po-form-wrap {
+          box-shadow: none !important; width: 100% !important;
+          padding: 20px 28px !important;
+        }
+        @page { margin: 0.5in; size: A4 portrait; }
+      }
     </style>
     </head>
     <body>
@@ -1172,6 +1234,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0114.85-3.36L23 10"></path><path d="M20.49 15a9 9 0 01-14.85 3.36L1 14"></path></svg>
             <span class="btn-txt">Reload</span>
           </button>
+          <button class="btn" id="genPoBtn" title="Generate Purchase Order form" style="display:none">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            <span class="btn-txt">Generate PO</span>
+          </button>
           <button class="btn" id="colVisBtn" title="Column visibility — hide columns from non-admin users">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M9 3v18M15 3v18"></path></svg>
             <span class="btn-txt">Columns</span>
@@ -1187,7 +1253,13 @@
             <span>Showing <span class="pill" id="rowCount">0</span> of <span class="pill" id="totalCount">0</span> <span id="recordType">records</span></span>
             <span id="tabInfo"></span>
             <span id="sortInfo"></span>
-            <span id="statusFilterBar" style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;"></span>
+            <span id="statusLegend" style="margin-left:auto;display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--muted);">
+              <span style="display:inline-flex;align-items:center;gap:4px;"><span class="status-dot s-received"></span>Received</span>
+              <span style="display:inline-flex;align-items:center;gap:4px;"><span class="status-dot s-partial"></span>Partially Received</span>
+              <span style="display:inline-flex;align-items:center;gap:4px;"><span class="status-dot s-transit"></span>In-Transit</span>
+              <span style="display:inline-flex;align-items:center;gap:4px;"><span class="status-dot s-confirmed"></span>Confirmed</span>
+              <span style="display:inline-flex;align-items:center;gap:4px;"><span class="status-dot s-default"></span>None</span>
+            </span>
             <span id="syncInfo" style="font-size:11px;color:var(--muted);"></span>
           </div>
           <div id="shipmentBar" style="display:none"></div>
@@ -1358,6 +1430,7 @@
 
     <!-- Modal mount point -->
     <div id="modalMount"></div>
+    <div id="poFormPrintRoot"></div>
     <div id="toastMount"></div>
 
     <script>
@@ -1387,7 +1460,6 @@
         shipmentFilter: '',
         invoiceTab: '',
         subTabData: {},
-        statusFilter: new Set(),
       };
     }
 
@@ -1478,7 +1550,7 @@
       }
     }
 
-    var _GAS_READS = { getRows: 1, getUsers: 1, getColVis: 1, getColHidden: 1, getItemCodes: 1, listSheets: 1, getTabConfig: 1, getImages: 1 };
+    var _GAS_READS = { getRows: 1, getUsers: 1, getColVis: 1, getItemCodes: 1, listSheets: 1, getTabConfig: 1, getImages: 1 };
     function gasRun(action, params) {
       var url = _getGasUrl();
       if (!url) return Promise.reject(new Error('Apps Script URL not configured. Open ⚙ Settings and paste your GAS deployment URL.'));
@@ -1565,11 +1637,13 @@
       const dBtn = document.getElementById('designModeBtn');
       if (sBtn) sBtn.style.display = isAdmin() ? '' : 'none';
       if (dBtn) dBtn.style.display = isAdmin() ? '' : 'none';
-      // Add New + Column Visibility buttons — admin only
+      // Add New + Column Visibility + Generate PO buttons — admin only
       const addBtn = document.getElementById('addBtn');
       if (addBtn) addBtn.style.display = isAdmin() ? '' : 'none';
       const colVisBtn = document.getElementById('colVisBtn');
       if (colVisBtn) colVisBtn.style.display = isAdmin() ? '' : 'none';
+      const genPoBtn = document.getElementById('genPoBtn');
+      if (genPoBtn) genPoBtn.style.display = (isAdmin() && STATE.activeModule === 'purchased') ? '' : 'none';
       // User badge
       const badgeName = document.getElementById('userBadgeName');
       const badgeRole = document.getElementById('userBadgeRole');
@@ -1603,7 +1677,6 @@
           loadConfig(); _migratePinIfNeeded();
           fetchItemCodes(function () {});
           _syncColVisFromSheet();
-          _syncColHiddenFromSheet();
           // Non-admins: fetch tab-disabled config from server FIRST so disabled tabs
           // are enforced immediately — prevents bypass via incognito / fresh session.
           if (res.role !== 'admin') {
@@ -1891,40 +1964,6 @@
       gasRun('saveColVis', { jsonStr: JSON.stringify(colVisConfig) }).then(function(){}).catch(function(){});
     }
 
-    // =====================================================================
-    // ============ Column Hidden Config (admin hide from everyone) =========
-    // =====================================================================
-    const COL_HIDDEN_KEY = 'po_webapp_col_hidden_v1';
-    let colHiddenConfig = {};
-    try { const _ch = localStorage.getItem(COL_HIDDEN_KEY); if (_ch) colHiddenConfig = JSON.parse(_ch) || {}; } catch(e) {}
-
-    function saveColHidden() {
-      try { localStorage.setItem(COL_HIDDEN_KEY, JSON.stringify(colHiddenConfig)); } catch(e) {}
-      gasRun('saveColHidden', { jsonStr: JSON.stringify(colHiddenConfig) }).then(function(){}).catch(function(){});
-    }
-    function _syncColHiddenFromSheet() {
-      gasRun('getColHidden', {}).then(function (res) {
-        if (!res || !res.ok) return;
-        try {
-          const remote = JSON.parse(res.value || '{}');
-          if (JSON.stringify(remote) === JSON.stringify(colHiddenConfig)) return;
-          colHiddenConfig = remote;
-          try { localStorage.setItem(COL_HIDDEN_KEY, JSON.stringify(colHiddenConfig)); } catch(e) {}
-          applyFiltersAndRender();
-        } catch(e) {}
-      }).catch(function () {});
-    }
-    function isColHidden(moduleId, header) { return !!(colHiddenConfig[moduleId] && colHiddenConfig[moduleId][header]); }
-    function toggleColHidden(moduleId, header) {
-      if (!colHiddenConfig[moduleId]) colHiddenConfig[moduleId] = {};
-      if (colHiddenConfig[moduleId][header]) {
-        delete colHiddenConfig[moduleId][header];
-        if (!Object.keys(colHiddenConfig[moduleId]).length) delete colHiddenConfig[moduleId];
-      } else { colHiddenConfig[moduleId][header] = true; }
-      saveColHidden(); applyFiltersAndRender();
-    }
-    function unhideAllCols(moduleId) { delete colHiddenConfig[moduleId]; saveColHidden(); applyFiltersAndRender(); }
-
     // Pulls the authoritative col-vis config from the sheet and re-renders if it differs.
     function _syncColVisFromSheet() {
       gasRun('getColVis', {})
@@ -2039,6 +2078,9 @@
       $('moduleTitle').textContent = cfg.title;
       $('addBtnLabel').textContent = cfg.addLabel;
       $('recordType').textContent  = cfg.recordType;
+      // Generate PO button — admin only, purchased module only
+      const _genPoBtn = document.getElementById('genPoBtn');
+      if (_genPoBtn) _genPoBtn.style.display = (isAdmin() && moduleId === 'purchased') ? '' : 'none';
 
       // immediately reflect which sheet tab this module targets
       const resolvedTab = tabFor(moduleId);
@@ -2352,13 +2394,6 @@
           if (v === null || v === undefined) return false;
           if (String(v).toLowerCase().indexOf(f.toLowerCase()) === -1) return false;
         }
-        if (STATE.activeModule === 'purchased' && m.statusFilter && m.statusFilter.size > 0) {
-          const statusHdr = m.headers.find(function (h) {
-            return h.toUpperCase().replace(/[^A-Z0-9]/g, '') === 'STATUS';
-          });
-          const sv = statusHdr ? String(row[statusHdr] || '').trim() : '';
-          if (!m.statusFilter.has(sv)) return false;
-        }
         return true;
       });
 
@@ -2440,7 +2475,6 @@
       m.filtered = result;
       renderTable();
       renderShipmentBar();
-      renderStatusFilterBar();
       renderInvoiceTabBar();
     }
 
@@ -2453,7 +2487,6 @@
           const name = String(x.h || '').trim();
           if (!name) return false;
           if (HIDDEN_COLUMNS[name.toUpperCase().replace(/[^A-Z0-9]/g, '')]) return false;
-          if (isColHidden(STATE.activeModule, x.h)) return false;
           if (!isAdmin() && isColAdminOnly(STATE.activeModule, x.h)) return false;
           if (STATE.activeModule === 'invoice') {
             const k = name.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -2743,48 +2776,6 @@
         activeMod().shipmentFilter = this.value;
         applyFiltersAndRender();
       });
-    }
-
-    // =====================================================================
-    // ============ Status Filter Bar (Purchased module) ===================
-    // =====================================================================
-    const STATUS_FILTER_OPTIONS = [
-      { value: 'Received',           cls: 's-received',  sfCls: 'sf-received',  label: 'Received'           },
-      { value: 'Partially Received', cls: 's-partial',   sfCls: 'sf-partial',   label: 'Partially Received' },
-      { value: 'In-Transit',         cls: 's-transit',   sfCls: 'sf-transit',   label: 'In-Transit'         },
-      { value: 'Confirmed',          cls: 's-confirmed', sfCls: 'sf-confirmed', label: 'Confirmed'          },
-      { value: '',                   cls: 's-default',   sfCls: 'sf-none',      label: 'None'               },
-    ];
-
-    function renderStatusFilterBar() {
-      const bar = $('statusFilterBar');
-      if (!bar) return;
-      if (STATE.activeModule !== 'purchased') {
-        bar.innerHTML = ''; bar.style.display = 'none'; return;
-      }
-      bar.style.display = 'inline-flex';
-      const m = activeMod();
-      const sf = m.statusFilter;
-      const anyActive = sf && sf.size > 0;
-      let html = '';
-      STATUS_FILTER_OPTIONS.forEach(function (opt) {
-        const active = sf && sf.has(opt.value);
-        html += '<span class="status-filter-chip ' + opt.sfCls + (active ? ' active' : '') + '" data-sfval="' + escapeHtml(opt.value) + '" title="Filter: ' + escapeHtml(opt.label) + '">'
-          + '<span class="status-dot ' + opt.cls + '"></span>' + escapeHtml(opt.label) + '</span>';
-      });
-      if (anyActive) html += '<span class="status-filter-clear" id="statusFilterClear" title="Clear status filter">✕ Clear</span>';
-      bar.innerHTML = html;
-      bar.querySelectorAll('.status-filter-chip').forEach(function (chip) {
-        chip.addEventListener('click', function () {
-          const val = chip.dataset.sfval;
-          if (!m.statusFilter) m.statusFilter = new Set();
-          if (m.statusFilter.has(val)) m.statusFilter.delete(val);
-          else m.statusFilter.add(val);
-          applyFiltersAndRender();
-        });
-      });
-      const clearBtn = $('statusFilterClear');
-      if (clearBtn) clearBtn.addEventListener('click', function () { m.statusFilter = new Set(); applyFiltersAndRender(); });
     }
 
     // =====================================================================
@@ -3221,65 +3212,213 @@
       document.removeEventListener('click', _colVisOutsideClick);
     }
 
-    // =====================================================================
-    // ============ Column Header Right-Click Context Menu =================
-    // =====================================================================
-    function closeColCtxMenu() {
-      const m = document.getElementById('colCtxMenu');
-      if (m) m.remove();
-      document.removeEventListener('click', _colCtxOutside);
-      document.removeEventListener('contextmenu', _colCtxOutside);
-      document.removeEventListener('keydown', _colCtxEsc);
-    }
-    function _colCtxOutside(e) { const m = document.getElementById('colCtxMenu'); if (m && !m.contains(e.target)) closeColCtxMenu(); }
-    function _colCtxEsc(e) { if (e.key === 'Escape') closeColCtxMenu(); }
-    function openColCtxMenu(e, colName) {
-      e.preventDefault(); e.stopPropagation(); closeColCtxMenu();
-      const moduleId = STATE.activeModule;
-      const hidden = isColHidden(moduleId, colName);
-      const hiddenCols = colHiddenConfig[moduleId] ? Object.keys(colHiddenConfig[moduleId]) : [];
-      const menu = document.createElement('div');
-      menu.id = 'colCtxMenu'; menu.className = 'col-ctx-menu';
-      let html = '<div class="col-ctx-title">' + escapeHtml(colName) + '</div>';
-      if (hidden) html += '<div class="col-ctx-item" data-action="unhide"><span class="col-ctx-icon">👁</span>Unhide this column</div>';
-      else        html += '<div class="col-ctx-item danger" data-action="hide"><span class="col-ctx-icon">🙈</span>Hide this column</div>';
-      if (hiddenCols.length > 0) {
-        html += '<div class="col-ctx-divider"></div>';
-        html += '<div class="col-ctx-item" data-action="unhide-all"><span class="col-ctx-icon">✅</span>Unhide all <span class="col-ctx-hidden-badge">' + hiddenCols.length + ' hidden</span></div>';
-      }
-      menu.innerHTML = html;
-      document.body.appendChild(menu);
-      const mw = menu.offsetWidth, mh = menu.offsetHeight;
-      let x = e.clientX, y = e.clientY;
-      if (x + mw > window.innerWidth  - 8) x = window.innerWidth  - mw - 8;
-      if (y + mh > window.innerHeight - 8) y = window.innerHeight - mh - 8;
-      menu.style.left = x + 'px'; menu.style.top = y + 'px';
-      menu.querySelectorAll('.col-ctx-item[data-action]').forEach(function (item) {
-        item.addEventListener('click', function (ev) {
-          ev.stopPropagation();
-          const action = item.dataset.action; closeColCtxMenu();
-          if (action === 'hide' || action === 'unhide') toggleColHidden(moduleId, colName);
-          else if (action === 'unhide-all') unhideAllCols(moduleId);
-        });
-      });
-      setTimeout(function () {
-        document.addEventListener('click', _colCtxOutside);
-        document.addEventListener('contextmenu', _colCtxOutside);
-        document.addEventListener('keydown', _colCtxEsc);
-      }, 0);
-    }
-    document.getElementById('tableContainer').addEventListener('contextmenu', function (e) {
-      if (!isAdmin() || STATE.activeModule !== 'purchased') return;
-      const th = e.target.closest('thead th[data-col]');
-      if (!th) return;
-      openColCtxMenu(e, th.dataset.col);
-    });
-
     _wireGlobalSearch();
     $('reloadBtn').addEventListener('click', function () {
       activeMod().loaded = false;
       loadActiveModule();
     });
+    $('genPoBtn').addEventListener('click', openGenPoDialog);
+
+    // =====================================================================
+    // ============ Generate Purchase Order Form ===========================
+    // =====================================================================
+
+    function openGenPoDialog() {
+      if (!isAdmin()) return;
+      const m = STATE.modules.purchased;
+      if (!m || !m.loaded || !m.rows.length) {
+        showToast('Load Purchased Orders data first (click Reload).', 'error');
+        return;
+      }
+
+      // Collect unique PO numbers for autocomplete suggestions
+      const orderHdr = m.headers.find(function (h) {
+        return h.toUpperCase().replace(/[^A-Z0-9]/g, '') === 'ORDER' ||
+               h.toUpperCase().replace(/[^A-Z0-9]/g, '') === 'ORDERNO' ||
+               h.toUpperCase().replace(/[^A-Z0-9]/g, '') === 'PONUMBER' ||
+               h.toUpperCase().replace(/[^A-Z0-9]/g, '') === 'PONO';
+      });
+      const uniquePOs = orderHdr
+        ? [...new Set(m.rows.map(function (r) { return String(r[orderHdr] || '').trim(); }).filter(Boolean))].sort()
+        : [];
+
+      const html = '<div class="gen-po-backdrop" id="genPoBackdrop">'
+        + '<div class="gen-po-dialog" onclick="event.stopPropagation()">'
+        + '<h3>'
+        + '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>'
+        + 'Generate Purchase Order'
+        + '</h3>'
+        + '<div class="gen-po-hint">Type or select a P.O. # to generate the printable form.</div>'
+        + '<div class="gen-po-input-row">'
+        + '<input class="gen-po-input" id="genPoInput" list="genPoList" placeholder="e.g. FH-26011" autocomplete="off" spellcheck="false">'
+        + '<datalist id="genPoList">'
+        + uniquePOs.map(function (p) { return '<option value="' + escapeHtml(p) + '">'; }).join('')
+        + '</datalist>'
+        + '</div>'
+        + '<div class="gen-po-error" id="genPoError"></div>'
+        + '<div class="gen-po-footer">'
+        + '<button class="btn" id="genPoCancel">Cancel</button>'
+        + '<button class="btn btn-primary" id="genPoSubmit">Generate</button>'
+        + '</div>'
+        + '</div>'
+        + '</div>';
+
+      $('poFormPrintRoot').innerHTML = html;
+
+      const input  = $('genPoInput');
+      const errEl  = $('genPoError');
+      const submit = $('genPoSubmit');
+
+      $('genPoBackdrop').addEventListener('click', closeGenPoDialog);
+      $('genPoCancel').addEventListener('click', closeGenPoDialog);
+
+      function tryGenerate() {
+        const poNum = (input.value || '').trim();
+        if (!poNum) { errEl.textContent = 'Please enter a P.O. #.'; errEl.style.display = ''; input.focus(); return; }
+        errEl.style.display = 'none';
+        const rows = m.rows.filter(function (r) {
+          return orderHdr && String(r[orderHdr] || '').trim().toLowerCase() === poNum.toLowerCase();
+        });
+        if (!rows.length) {
+          errEl.textContent = 'No records found for P.O. # "' + poNum + '". Check the number and try again.';
+          errEl.style.display = '';
+          input.focus();
+          return;
+        }
+        closeGenPoDialog();
+        openPoFormPreview(poNum, rows, m.headers);
+      }
+
+      submit.addEventListener('click', tryGenerate);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') tryGenerate(); });
+      setTimeout(function () { input.focus(); }, 40);
+    }
+
+    function closeGenPoDialog() {
+      $('poFormPrintRoot').innerHTML = '';
+    }
+
+    function openPoFormPreview(poNum, rows, allHeaders) {
+      // ── Resolve header names by normalised key ──────────────────────────
+      function hdr(key) {
+        return allHeaders.find(function (h) {
+          return h.toUpperCase().replace(/[^A-Z0-9]/g, '') === key;
+        }) || null;
+      }
+      const hSupplier  = hdr('SPCODE');
+      const hDate      = allHeaders[1] || null; // 2nd column = Date
+      const hItemCode  = hdr('ITEMCODE') || hdr('ITEM');
+      const hItemDesc  = hdr('ITEMDESCRIPTION') || hdr('DESCRIPTION') || hdr('ITEMDESC');
+      const hSize      = hdr('SIZE');
+      const hQty       = hdr('QUANTITY') || hdr('QTY');
+      const hUnit      = hdr('UNIT');
+      const hUnitPrice = hdr('UNITPRICE') || hdr('PRICE');
+      const hRemarks   = hdr('REMARKS') || hdr('COMMENTS') || hdr('NOTES') || hdr('SPECIALINSTRUCTIONS');
+
+      // Use first row for header fields (supplier, date)
+      const first = rows[0];
+      const supplier  = hSupplier  ? String(first[hSupplier]  || '') : '';
+      const dateVal   = hDate      ? String(first[hDate]      || '') : '';
+      const comments  = hRemarks   ? String(first[hRemarks]   || '') : '';
+
+      // ── Build item rows ─────────────────────────────────────────────────
+      const MIN_ROWS = 8;
+      let itemRows = '';
+      rows.forEach(function (r) {
+        itemRows += '<tr>'
+          + '<td>' + escapeHtml(hItemCode  ? String(r[hItemCode]  || '') : '') + '</td>'
+          + '<td>' + escapeHtml(hItemDesc  ? String(r[hItemDesc]  || '') : '') + '</td>'
+          + '<td class="center">' + escapeHtml(hSize      ? String(r[hSize]      || '') : '') + '</td>'
+          + '<td class="center">' + escapeHtml(hQty       ? String(r[hQty]       || '') : '') + '</td>'
+          + '<td class="center">' + escapeHtml(hUnit      ? String(r[hUnit]      || '') : '') + '</td>'
+          + '<td class="right">'  + escapeHtml(hUnitPrice ? String(r[hUnitPrice] || '') : '') + '</td>'
+          + '</tr>';
+      });
+      // Pad to minimum rows for clean printing
+      for (let i = rows.length; i < MIN_ROWS; i++) {
+        itemRows += '<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>';
+      }
+
+      const formHtml = '<div class="po-form-wrap" id="poFormBody">'
+        // Header
+        + '<div class="po-header-row">'
+        + '<div class="po-company">YUNITRADE MARKETING CENTER CORP.</div>'
+        + '<div class="po-title-block"><div class="po-title">PURCHASE ORDER</div></div>'
+        + '</div>'
+        // Meta fields
+        + '<div class="po-meta-grid">'
+        + '<div class="po-meta-left">'
+        + '<span class="po-meta-label">Supplier:</span>'
+        + '<span class="po-meta-value">' + escapeHtml(supplier) + '</span>'
+        + '</div>'
+        + '<div class="po-meta-right">'
+        + '<span class="po-meta-label">DATE:</span>'
+        + '<span class="po-meta-value" style="min-width:140px;">' + escapeHtml(dateVal) + '</span>'
+        + '</div>'
+        + '<div></div>'
+        + '<div class="po-meta-right">'
+        + '<span class="po-meta-label">P.O. #</span>'
+        + '<span class="po-meta-value" style="min-width:140px;">' + escapeHtml(poNum) + '</span>'
+        + '</div>'
+        + '</div>'
+        // Items table
+        + '<table class="po-items-table">'
+        + '<thead><tr>'
+        + '<th style="width:16%">Item Code</th>'
+        + '<th style="width:34%">Item Description</th>'
+        + '<th style="width:12%">Size</th>'
+        + '<th style="width:12%">Quantity</th>'
+        + '<th style="width:10%">Unit</th>'
+        + '<th style="width:16%">Unit Price</th>'
+        + '</tr></thead>'
+        + '<tbody>' + itemRows + '</tbody>'
+        + '</table>'
+        // Comments
+        + '<div class="po-comments-label">Other Comments or Special Instructions</div>'
+        + '<div class="po-comments-box">' + escapeHtml(comments) + '</div>'
+        // Signatures
+        + '<div class="po-sigs">'
+        + '<div class="po-sig-block">'
+        + '<div class="po-sig-line"></div>'
+        + '<div class="po-sig-labels"><span>Requested by</span><span>Date</span></div>'
+        + '</div>'
+        + '<div class="po-sig-block" style="align-self:flex-end">'
+        + '<div class="po-sig-line"></div>'
+        + '<div class="po-sig-labels"><span>Authorized by</span><span>Date</span></div>'
+        + '</div>'
+        + '</div>'
+        + '</div>'; // end po-form-wrap
+
+      const backdropHtml = '<div class="po-form-backdrop" id="poFormBackdrop">'
+        + '<div class="po-form-toolbar">'
+        + '<span class="po-form-toolbar-title">Purchase Order — ' + escapeHtml(poNum) + ' (' + rows.length + ' item' + (rows.length === 1 ? '' : 's') + ')</span>'
+        + '<button class="btn" id="poFormPrintBtn" style="background:#fff;color:#111;border-color:#ccc;">'
+        + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>'
+        + ' Print / Save PDF'
+        + '</button>'
+        + '<button class="btn" id="poFormCloseBtn" style="background:rgba(255,255,255,0.12);color:#fff;border-color:rgba(255,255,255,0.2);">✕ Close</button>'
+        + '</div>'
+        + formHtml
+        + '</div>';
+
+      $('poFormPrintRoot').innerHTML = backdropHtml;
+
+      $('poFormCloseBtn').addEventListener('click', closePoFormPreview);
+      $('poFormPrintBtn').addEventListener('click', function () { window.print(); });
+
+      // Close on backdrop click (not on form itself)
+      $('poFormBackdrop').addEventListener('click', function (e) {
+        if (e.target === $('poFormBackdrop')) closePoFormPreview();
+      });
+
+      // Esc key closes
+      function _poEsc(e) { if (e.key === 'Escape') { closePoFormPreview(); document.removeEventListener('keydown', _poEsc); } }
+      document.addEventListener('keydown', _poEsc);
+    }
+
+    function closePoFormPreview() {
+      $('poFormPrintRoot').innerHTML = '';
+    }
     $('colVisBtn').addEventListener('click', function (e) { e.stopPropagation(); openColVisPopover(); });
     $('addBtn').addEventListener('click', function () {
       if (STATE.activeModule === 'invoice' || STATE.activeModule === 'incoming' || STATE.activeModule === 'purchased') openBatchModal(STATE.activeModule);
@@ -5434,7 +5573,6 @@
         loadConfig(); _migratePinIfNeeded();
         fetchItemCodes(function () {});
         _syncColVisFromSheet();
-        _syncColHiddenFromSheet();
         // Same guard as doLogin: non-admins must have server tab config before accessing modules
         if (_sess.role !== 'admin') {
           _syncTabConfigFromSheet().then(function () {
