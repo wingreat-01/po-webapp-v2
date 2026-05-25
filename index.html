@@ -2274,8 +2274,9 @@
       // (handles both ISO YYYY-MM-DD and locale formats like M/D/YYYY from Google Sheets).
       let sortKey = m.sortKey || '__rowIndex';
       // Invoice module defaults to ascending sheet row order (top of sheet = top of list).
+      // Incoming module defaults to ascending sheet row order (top of sheet = top of list).
       // All other modules default to descending (newest row first).
-      let sortDir = m.sortKey ? m.sortDir : (STATE.activeModule === 'invoice' ? 1 : -1);
+      let sortDir = m.sortKey ? m.sortDir : (STATE.activeModule === 'invoice' || STATE.activeModule === 'incoming' ? 1 : -1);
       let useDateSort = false;
       if (!m.sortKey && STATE.activeModule === 'received') {
         const drHeader = m.headers.find(function (h) {
