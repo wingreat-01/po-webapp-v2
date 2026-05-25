@@ -3948,6 +3948,7 @@
         var visible = [];      // current filtered slice
         var activeAcIdx = -1;
         var currentInput = null; // the focused ITEM CODE input
+        var _picking = false;  // guard: ignore input events fired by pick()
 
         function isItemCodeField(el) {
           if (!el || !el.classList.contains('batch-cell')) return false;
@@ -3982,12 +3983,12 @@
 
         function pick(s) {
           if (!currentInput) return;
+          _picking = true;
           currentInput.value = s.code;
           var descEl = getDescCell(currentInput);
           if (descEl) descEl.value = s.desc;
-          // Trigger input event so batch totals / calc fields update if needed
-          currentInput.dispatchEvent(new Event('input', { bubbles: true }));
           hide();
+          _picking = false;
         }
 
         function highlightAC() {
@@ -4067,6 +4068,7 @@
 
           batchBody.addEventListener('input', function (e) {
             if (!isItemCodeField(e.target)) return;
+            if (_picking) return; // programmatic set — ignore
             currentInput = e.target;
             var q = currentInput.value;
             visible = filterEntries(q);
@@ -4097,6 +4099,7 @@
               if (item2) item2.scrollIntoView({ block: 'nearest' });
             } else if (e.key === 'Enter' && activeAcIdx >= 0) {
               e.preventDefault();
+              e.stopPropagation(); // prevent batch-body Enter from moving to next row
               pick(visible[activeAcIdx]);
             } else if (e.key === 'Tab' && activeAcIdx >= 0) {
               pick(visible[activeAcIdx]);
@@ -4176,11 +4179,13 @@
       });
       if (STATE.activeModule === moduleId) applyFiltersAndRender();
 
-      rows.forEach(function (data) {
-        gasRun('addRow', { sheetName: tab, data: data })
-          .then(function (res) { tick(!!(res && res.success)); })
-          .catch(function ()   { tick(false); });
-      });
+      // Sequential submission — prevents Apps Script concurrency limit drops
+      (function submitSeq(i) {
+        if (i >= rows.length) return;
+        gasRun('addRow', { sheetName: tab, data: rows[i] })
+          .then(function (res) { tick(!!(res && res.success)); submitSeq(i + 1); })
+          .catch(function ()   { tick(false);                  submitSeq(i + 1); });
+      })(0);
     }
 
     // =====================================================================
