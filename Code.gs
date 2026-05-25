@@ -75,8 +75,8 @@ function doGet(e) {
       result = getRows(p.sheetName);
       break;
     case 'getUsers':     result = getUsers();             break;
-    case 'getColVis':    result = getColVis();            break;
     case 'getColHidden': result = getColHidden();         break;
+    case 'getColVis':    result = getColVis();            break;
     case 'getTabConfig': result = getTabConfig();         break;
     case 'getItemCodes': result = getItemCodes();         break;
     case 'listSheets':   result = listSheets();           break;
@@ -120,7 +120,7 @@ function doPost(e) {
     case 'saveUser':       result = saveUser(body.username, body.password, body.role);                        break;
     case 'deleteUser':     result = deleteUser(body.username);                                                break;
     case 'saveColVis':     result = saveColVis(body.jsonStr);                                                 break;
-    case 'saveColHidden':  result = saveColHidden(body.jsonStr);                                              break;
+    case 'saveColHidden':  result = saveColHidden(body.jsonStr);                                                 break;
     case 'saveTabConfig':  result = saveTabConfig(body.jsonStr);                                              break;
     case 'saveImage':      result = saveImage(body.sheetName, body.rowIndex, body.name, body.base64, body.mimeType); break;
     case 'getImageData':   result = getImageData(body.imageId);                                                      break;
@@ -623,9 +623,8 @@ function saveColVis(jsonStr) {
 }
 
 /**
- * Reads the column-hidden config JSON from the APP_CONFIG tab.
- * This stores columns that are fully hidden (even from admin) per module.
- * Returns { ok: true, value: '{}' } if the key doesn't exist yet.
+ * Reads the column-hidden config JSON from APP_CONFIG (key: col_hidden).
+ * Columns in this config are fully hidden from everyone, including admin.
  */
 function getColHidden() {
   try {
@@ -647,8 +646,7 @@ function getColHidden() {
 }
 
 /**
- * Persists the column-hidden config JSON to the APP_CONFIG tab (key: col_hidden).
- * Creates the tab with headers if it doesn't exist.
+ * Persists the column-hidden config JSON to APP_CONFIG (key: col_hidden).
  */
 function saveColHidden(jsonStr) {
   try {
@@ -674,9 +672,6 @@ function saveColHidden(jsonStr) {
     return { success: false, error: e.toString() };
   }
 }
-
-/**
- * Returns all item code → description pairs from the ITEMCODES tab.
  * Expects row 1 to be a header row; data starts at row 2.
  * Col A = Item Code, Col B = Description.
  * Result is cached in CacheService for CACHE_TTL_SECONDS.
