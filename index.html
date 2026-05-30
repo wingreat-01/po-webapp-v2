@@ -204,6 +204,14 @@
       .global-ac-item:hover, .global-ac-item.ac-active { background: var(--row-hover); }
       .global-ac-col { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
       .global-ac-val { color: var(--text); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .global-ac-val em { font-style: normal; font-weight: 800; color: var(--accent); }
+      .global-ac-count {
+        flex-shrink: 0; margin-left: auto; padding: 1px 7px;
+        border-radius: 10px; font-size: 10px; font-weight: 700;
+        background: var(--row-hover); color: var(--muted); white-space: nowrap;
+      }
+      .global-ac-item { display: flex; flex-direction: column; gap: 1px; }
+      .global-ac-item-row { display: flex; align-items: center; gap: 6px; }
 
       .btn {
         padding: 8px 14px;
@@ -388,73 +396,6 @@
         padding: 8px 14px; border-top: 1px solid var(--border);
         font-size: 11px; color: var(--muted); line-height: 1.4; flex-shrink: 0;
       }
-
-      /* ── User column picker ──────────────────────────────────── */
-      .ucol-popover {
-        position: fixed;
-        background: var(--panel); border: 1px solid var(--border);
-        border-radius: 10px; box-shadow: 0 10px 36px rgba(0,0,0,0.6);
-        z-index: 310; width: 280px; max-height: 500px;
-        display: flex; flex-direction: column; overflow: hidden;
-      }
-      .ucol-head {
-        padding: 12px 14px 10px; border-bottom: 1px solid var(--border);
-        display: flex; align-items: center; gap: 8px; flex-shrink: 0;
-      }
-      .ucol-title { flex: 1; font-size: 12px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: 0.5px; }
-      .ucol-reset { font-size: 11px; color: var(--accent); cursor: pointer; padding: 2px 6px; border-radius: 4px; border: none; background: transparent; }
-      .ucol-reset:hover { background: var(--row-hover); }
-      .ucol-hint {
-        padding: 6px 14px; font-size: 11px; color: var(--muted);
-        border-bottom: 1px solid var(--border); flex-shrink: 0;
-        display: flex; align-items: center; gap: 6px;
-      }
-      .ucol-list { overflow-y: auto; flex: 1; padding: 4px 0; }
-      .ucol-row {
-        display: flex; align-items: center; gap: 8px;
-        padding: 6px 10px 6px 6px;
-        cursor: default; user-select: none;
-        transition: background 0.1s;
-      }
-      .ucol-row.drag-over { background: var(--accent); opacity: 0.7; }
-      .ucol-row.dragging { opacity: 0.35; }
-      .ucol-handle {
-        flex-shrink: 0; width: 22px; display: flex; align-items: center; justify-content: center;
-        cursor: grab; color: var(--muted); font-size: 14px; padding: 4px 0;
-      }
-      .ucol-handle:active { cursor: grabbing; }
-      .ucol-eye {
-        flex-shrink: 0; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
-        border: none; background: transparent; cursor: pointer; border-radius: 5px;
-        color: var(--muted); font-size: 15px; transition: color 0.15s, background 0.15s;
-      }
-      .ucol-eye:hover { background: var(--row-hover); color: var(--text); }
-      .ucol-eye.on { color: var(--accent); }
-      .ucol-name { flex: 1; font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .ucol-name.hidden-col { color: var(--muted); text-decoration: line-through; }
-      .ucol-badge {
-        font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px;
-        background: rgba(248,81,73,0.12); color: var(--danger);
-        border: 1px solid rgba(248,81,73,0.3); white-space: nowrap;
-      }
-      .ucol-foot {
-        padding: 8px 14px; border-top: 1px solid var(--border); flex-shrink: 0;
-        display: flex; align-items: center; gap: 8px;
-      }
-      .ucol-count { flex: 1; font-size: 11px; color: var(--muted); }
-      .ucol-apply {
-        font-size: 12px; padding: 5px 14px; border-radius: 5px;
-        background: var(--accent); color: #fff; border: none; cursor: pointer;
-        font-weight: 600;
-      }
-      .ucol-apply:hover { opacity: 0.9; }
-      /* Badge on Columns button showing hidden count */
-      #ucolBtnBadge {
-        display: none; font-size: 9px; font-weight: 800;
-        padding: 1px 5px; border-radius: 8px; margin-left: 2px;
-        background: var(--accent); color: #fff;
-      }
-      #ucolBtnBadge.show { display: inline-block; }
 
       td.actions {
         text-align: right; white-space: nowrap; padding-left: 4px; padding-right: 4px;
@@ -1305,14 +1246,9 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
             <span class="btn-txt">Generate PO</span>
           </button>
-          <button class="btn" id="colVisBtn" title="Column visibility — hide columns from non-admin users" style="display:none">
+          <button class="btn" id="colVisBtn" title="Column visibility — hide columns from non-admin users">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M9 3v18M15 3v18"></path></svg>
-            <span class="btn-txt">Admin Cols</span>
-          </button>
-          <button class="btn" id="ucolBtn" title="Choose which columns to display">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M9 3v18M15 3v18"></path><path d="M6 9h.01M6 12h.01M6 15h.01"></path></svg>
             <span class="btn-txt">Columns</span>
-            <span id="ucolBtnBadge"></span>
           </button>
           <button class="btn btn-primary" id="addBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
@@ -1713,8 +1649,7 @@
       const addBtn = document.getElementById('addBtn');
       if (addBtn) addBtn.style.display = isAdmin() ? '' : 'none';
       const colVisBtn = document.getElementById('colVisBtn');
-      if (colVisBtn) colVisBtn.style.display = isAdmin() ? '' : 'none'; // admin-only admin toggle
-      updateUcolBadge();
+      if (colVisBtn) colVisBtn.style.display = isAdmin() ? '' : 'none';
       const genPoBtn = document.getElementById('genPoBtn');
       if (genPoBtn) genPoBtn.style.display = (isAdmin() && STATE.activeModule === 'purchased') ? '' : 'none';
       // User badge
@@ -1971,24 +1906,6 @@
     let colVisConfig = {};
     try { const _cv = localStorage.getItem(COL_VIS_KEY); if (_cv) colVisConfig = JSON.parse(_cv) || {}; } catch(e) {}
 
-    // Per-user personal column visibility + order (all users, not just admin)
-    const USER_COL_KEY = 'po_webapp_user_col_v1';
-    let userColConfig = {}; // { moduleId: { hidden: {colName:true}, order: [colName,...] } }
-    try { const _uc = localStorage.getItem(USER_COL_KEY); if (_uc) userColConfig = JSON.parse(_uc) || {}; } catch(e) {}
-    function saveUserColConfig() {
-      try { localStorage.setItem(USER_COL_KEY, JSON.stringify(userColConfig)); } catch(e) {}
-    }
-    function getUserCols(moduleId) {
-      if (!userColConfig[moduleId]) userColConfig[moduleId] = { hidden: {}, order: [] };
-      return userColConfig[moduleId];
-    }
-    function isUserColHidden(moduleId, header) {
-      return !!(userColConfig[moduleId] && userColConfig[moduleId].hidden && userColConfig[moduleId].hidden[header]);
-    }
-    function getUserColOrder(moduleId) {
-      return (userColConfig[moduleId] && userColConfig[moduleId].order) || [];
-    }
-
     // Per-module availability — admin can disable tabs for non-admin users
     const TAB_DISABLED_KEY = 'po_webapp_tab_disabled_v1';
     let tabDisabledConfig = {};
@@ -2157,9 +2074,7 @@
     function switchModule(moduleId) {
       if (!MODULES[moduleId]) return;
       closeColVisPopover();
-      closeUcolPopover();
       STATE.activeModule = moduleId;
-      updateUcolBadge();
 
       // update sidebar active class
       document.querySelectorAll('.nav-btn').forEach(function (b) {
@@ -2574,17 +2489,14 @@
     function renderTable() {
       const m = activeMod();
       const cfg = activeCfg();
-      const _modId = STATE.activeModule;
-      const _userOrder = getUserColOrder(_modId);
       const headers = m.headers
         .map(function (h, i) { return { h: h, i: i }; })
         .filter(function (x) {
           const name = String(x.h || '').trim();
           if (!name) return false;
           if (HIDDEN_COLUMNS[name.toUpperCase().replace(/[^A-Z0-9]/g, '')]) return false;
-          if (!isAdmin() && isColAdminOnly(_modId, x.h)) return false;
-          if (isUserColHidden(_modId, x.h)) return false;
-          if (_modId === 'invoice') {
+          if (!isAdmin() && isColAdminOnly(STATE.activeModule, x.h)) return false;
+          if (STATE.activeModule === 'invoice') {
             const k = name.toUpperCase().replace(/[^A-Z0-9]/g, '');
             if (k === 'DATE' || k === 'INVOICEDATE' || k === 'INVDATE') return false;
             if (k === 'EXCHANGERATE' || k === 'EXRATE' || k === 'EXCHRATE' || (k.indexOf('EXCHANGE') !== -1 && k.indexOf('RATE') !== -1)) return false;
@@ -2594,10 +2506,7 @@
         .map(function (x) {
           const key = x.h.toUpperCase().replace(/[^A-Z0-9]/g, '');
           const pos = COLUMN_ORDER.hasOwnProperty(key) ? COLUMN_ORDER[key] : null;
-          // User custom order takes priority over COLUMN_ORDER
-          const userPos = _userOrder.indexOf(x.h);
-          const finalPos = userPos >= 0 ? userPos : (pos !== null ? m.headers.length + pos : m.headers.length + 999 + x.i);
-          return { h: x.h, sortKey: finalPos };
+          return { h: x.h, sortKey: pos !== null ? m.headers.length + pos : x.i };
         })
         .sort(function (a, b) { return a.sortKey - b.sortKey; })
         .map(function (x) { return x.h; });
@@ -3094,6 +3003,7 @@
         const m = activeMod();
         if (!m || !m.rows || !m.headers) return [];
         const qLow = q.trim().toLowerCase();
+        const isPurchased = STATE.activeModule === 'purchased';
         const seen = {}, results = [];
         for (let ri = 0; ri < m.rows.length; ri++) {
           const row = m.rows[ri];
@@ -3106,7 +3016,7 @@
               const key = h + '\x00' + v;
               if (!seen[key]) {
                 seen[key] = true;
-                results.push({ col: h, val: v, starts: vLow.indexOf(qLow) === 0 });
+                results.push({ col: h, val: v, starts: vLow.indexOf(qLow) === 0, count: 0 });
               }
             }
           }
@@ -3117,17 +3027,44 @@
           if (!a.starts && b.starts) return 1;
           return a.val.localeCompare(b.val);
         });
-        return results.slice(0, 10);
+        var top = results.slice(0, 10);
+        // Purchased tab only: count exact row matches per suggestion
+        if (isPurchased) {
+          top.forEach(function (item) {
+            var vLow2 = item.val.toLowerCase();
+            var cnt = 0;
+            for (var ri2 = 0; ri2 < m.rows.length; ri2++) {
+              if (String(m.rows[ri2][item.col] || '').trim().toLowerCase() === vLow2) cnt++;
+            }
+            item.count = cnt;
+          });
+        }
+        return top;
       }
 
       function renderAC() {
         if (acItems.length === 0) { ac.style.display = 'none'; return; }
+        const isPurchased = STATE.activeModule === 'purchased';
+        const qLow2 = (inp3.value || '').trim().toLowerCase();
         let html = '';
         acItems.forEach(function (item, i) {
           const cls = i === activeIdx ? ' ac-active' : '';
+          // Highlight matched substring in the value
+          var dispVal = escapeHtml(item.val);
+          if (qLow2) {
+            var mi = item.val.toLowerCase().indexOf(qLow2);
+            if (mi >= 0) {
+              dispVal = escapeHtml(item.val.slice(0, mi))
+                + '<em>' + escapeHtml(item.val.slice(mi, mi + qLow2.length)) + '</em>'
+                + escapeHtml(item.val.slice(mi + qLow2.length));
+            }
+          }
+          const countBadge = (isPurchased && item.count > 0)
+            ? '<span class="global-ac-count">' + item.count + ' order' + (item.count !== 1 ? 's' : '') + '</span>'
+            : '';
           html += '<div class="global-ac-item' + cls + '" data-i="' + i + '">'
-            + '<div class="global-ac-col">' + escapeHtml(item.col) + '</div>'
-            + '<div class="global-ac-val">' + escapeHtml(item.val) + '</div>'
+            + '<div class="global-ac-item-row"><span class="global-ac-col">' + escapeHtml(item.col) + '</span>' + countBadge + '</div>'
+            + '<div class="global-ac-val">' + dispVal + '</div>'
             + '</div>';
         });
         ac.innerHTML = html;
@@ -3312,217 +3249,11 @@
     }
 
     _wireGlobalSearch();
-    // =====================================================================
-    // ============ User Column Picker =====================================
-    // =====================================================================
-
-    function updateUcolBadge() {
-      const badge = document.getElementById('ucolBtnBadge');
-      if (!badge) return;
-      const modId = STATE.activeModule;
-      const uc = userColConfig[modId];
-      const count = uc && uc.hidden ? Object.keys(uc.hidden).length : 0;
-      badge.textContent = count > 0 ? count : '';
-      badge.classList.toggle('show', count > 0);
-    }
-
-    function openUcolPopover() {
-      const existing = document.getElementById('ucolPopover');
-      if (existing) { existing.remove(); document.removeEventListener('click', _ucolOutsideClick); return; }
-
-      const modId = STATE.activeModule;
-      const m = activeMod();
-      if (!m || !m.headers || !m.headers.length) {
-        showToast('Load data first, then customise columns.', 'info'); return;
-      }
-
-      const uc = getUserCols(modId);
-
-      const allCols = m.headers.filter(function (h) {
-        const name = String(h || '').trim();
-        if (!name) return false;
-        if (HIDDEN_COLUMNS[name.toUpperCase().replace(/[^A-Z0-9]/g, '')]) return false;
-        return true;
-      });
-
-      let ordered;
-      if (uc.order && uc.order.length) {
-        const orderSet = {};
-        uc.order.forEach(function (h, i) { orderSet[h] = i; });
-        // Include any new columns not in saved order at the end
-        const inOrder = uc.order.filter(function (h) { return allCols.indexOf(h) >= 0; });
-        const notInOrder = allCols.filter(function (h) { return uc.order.indexOf(h) < 0; });
-        ordered = inOrder.concat(notInOrder);
-      } else {
-        ordered = allCols.slice().sort(function (a, b) {
-          const ka = a.toUpperCase().replace(/[^A-Z0-9]/g, '');
-          const kb = b.toUpperCase().replace(/[^A-Z0-9]/g, '');
-          const pa = COLUMN_ORDER.hasOwnProperty(ka) ? COLUMN_ORDER[ka] : 9999;
-          const pb = COLUMN_ORDER.hasOwnProperty(kb) ? COLUMN_ORDER[kb] : 9999;
-          return pa - pb;
-        });
-      }
-
-      const hiddenCount = Object.keys(uc.hidden || {}).length;
-      const totalCount = ordered.length;
-
-      const pop = document.createElement('div');
-      pop.className = 'ucol-popover';
-      pop.id = 'ucolPopover';
-
-      function buildRows(cols, draftHid) {
-        return cols.map(function (h) {
-          const isHid = !!(draftHid && draftHid[h]);
-          const isAdminOnly = isColAdminOnly(modId, h);
-          return '<div class="ucol-row" draggable="true" data-col="' + escapeHtml(h) + '">'
-            + '<span class="ucol-handle" title="Drag to reorder">&#8942;&#8942;</span>'
-            + '<button class="ucol-eye' + (isHid ? '' : ' on') + '" data-col="' + escapeHtml(h) + '" title="' + (isHid ? 'Show column' : 'Hide column') + '">'
-            + (isHid ? '&#128065;&#xFE0E;' : '&#128065;') + '</button>'
-            + '<span class="ucol-name' + (isHid ? ' hidden-col' : '') + '">' + escapeHtml(h) + '</span>'
-            + (isAdminOnly ? '<span class="ucol-badge">Admin only</span>' : '')
-            + '</div>';
-        }).join('');
-      }
-
-      pop.innerHTML =
-        '<div class="ucol-head">'
-          + '<span class="ucol-title">Columns</span>'
-          + '<button class="ucol-reset" id="ucolReset">Reset</button>'
-        + '</div>'
-        + '<div class="ucol-hint">'
-          + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
-          + ' Toggle eye to show/hide &middot; drag handle to reorder'
-        + '</div>'
-        + '<div class="ucol-list" id="ucolList">' + buildRows(ordered, uc.hidden) + '</div>'
-        + '<div class="ucol-foot">'
-          + '<span class="ucol-count" id="ucolCountLabel">' + (totalCount - hiddenCount) + ' of ' + totalCount + ' visible</span>'
-          + '<button class="ucol-apply" id="ucolApply">Apply</button>'
-        + '</div>';
-
-      document.body.appendChild(pop);
-
-      const btn = document.getElementById('ucolBtn');
-      const rect = btn.getBoundingClientRect();
-      pop.style.top  = (rect.bottom + 6) + 'px';
-      pop.style.right = (window.innerWidth - rect.right) + 'px';
-
-      let draftHidden = Object.assign({}, uc.hidden || {});
-      let draftOrder = ordered.slice();
-
-      function refreshCountLabel() {
-        const vis = draftOrder.filter(function (h) { return !draftHidden[h]; }).length;
-        const lbl = document.getElementById('ucolCountLabel');
-        if (lbl) lbl.textContent = vis + ' of ' + draftOrder.length + ' visible';
-      }
-
-      function rewireRows() {
-        const list = document.getElementById('ucolList');
-        if (!list) return;
-        let dragSrc = null;
-
-        list.querySelectorAll('.ucol-eye').forEach(function (eyeBtn) {
-          eyeBtn.addEventListener('click', function (e) {
-            e.stopPropagation();
-            const col = eyeBtn.dataset.col;
-            if (draftHidden[col]) {
-              delete draftHidden[col];
-              eyeBtn.classList.add('on');
-              eyeBtn.innerHTML = '&#128065;';
-              eyeBtn.title = 'Hide column';
-              eyeBtn.closest('.ucol-row').querySelector('.ucol-name').classList.remove('hidden-col');
-            } else {
-              draftHidden[col] = true;
-              eyeBtn.classList.remove('on');
-              eyeBtn.innerHTML = '&#128065;&#xFE0E;';
-              eyeBtn.title = 'Show column';
-              eyeBtn.closest('.ucol-row').querySelector('.ucol-name').classList.add('hidden-col');
-            }
-            refreshCountLabel();
-          });
-        });
-
-        list.querySelectorAll('.ucol-row').forEach(function (row) {
-          row.addEventListener('dragstart', function (e) {
-            dragSrc = row;
-            row.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', row.dataset.col);
-          });
-          row.addEventListener('dragend', function () {
-            dragSrc = null;
-            list.querySelectorAll('.ucol-row').forEach(function (r) { r.classList.remove('dragging', 'drag-over'); });
-          });
-          row.addEventListener('dragover', function (e) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            if (row !== dragSrc) {
-              list.querySelectorAll('.ucol-row').forEach(function (r) { r.classList.remove('drag-over'); });
-              row.classList.add('drag-over');
-            }
-          });
-          row.addEventListener('drop', function (e) {
-            e.preventDefault();
-            if (!dragSrc || dragSrc === row) return;
-            const allRows = Array.from(list.querySelectorAll('.ucol-row'));
-            const srcIdx = allRows.indexOf(dragSrc);
-            const tgtIdx = allRows.indexOf(row);
-            if (srcIdx < 0 || tgtIdx < 0) return;
-            if (srcIdx < tgtIdx) { row.after(dragSrc); } else { list.insertBefore(dragSrc, row); }
-            draftOrder = Array.from(list.querySelectorAll('.ucol-row')).map(function (r) { return r.dataset.col; });
-            list.querySelectorAll('.ucol-row').forEach(function (r) { r.classList.remove('drag-over'); });
-          });
-        });
-      }
-
-      document.getElementById('ucolReset').addEventListener('click', function (e) {
-        e.stopPropagation();
-        draftHidden = {};
-        draftOrder = allCols.slice().sort(function (a, b) {
-          const ka = a.toUpperCase().replace(/[^A-Z0-9]/g, '');
-          const kb = b.toUpperCase().replace(/[^A-Z0-9]/g, '');
-          const pa = COLUMN_ORDER.hasOwnProperty(ka) ? COLUMN_ORDER[ka] : 9999;
-          const pb = COLUMN_ORDER.hasOwnProperty(kb) ? COLUMN_ORDER[kb] : 9999;
-          return pa - pb;
-        });
-        const list = document.getElementById('ucolList');
-        if (list) { list.innerHTML = buildRows(draftOrder, {}); rewireRows(); }
-        refreshCountLabel();
-      });
-
-      document.getElementById('ucolApply').addEventListener('click', function (e) {
-        e.stopPropagation();
-        uc.hidden = Object.assign({}, draftHidden);
-        uc.order  = draftOrder.slice();
-        saveUserColConfig();
-        updateUcolBadge();
-        closeUcolPopover();
-        applyFiltersAndRender();
-      });
-
-      rewireRows();
-
-      setTimeout(function () { document.addEventListener('click', _ucolOutsideClick); }, 0);
-    }
-
-    function _ucolOutsideClick(e) {
-      const pop = document.getElementById('ucolPopover');
-      const btn = document.getElementById('ucolBtn');
-      if (pop && !pop.contains(e.target) && btn && !btn.contains(e.target)) { closeUcolPopover(); }
-    }
-
-    function closeUcolPopover() {
-      const pop = document.getElementById('ucolPopover');
-      if (pop) pop.remove();
-      document.removeEventListener('click', _ucolOutsideClick);
-    }
-
-
     $('reloadBtn').addEventListener('click', function () {
       activeMod().loaded = false;
       loadActiveModule();
     });
     $('genPoBtn').addEventListener('click', openGenPoDialog);
-    document.getElementById('ucolBtn').addEventListener('click', function (e) { e.stopPropagation(); openUcolPopover(); });
 
     // =====================================================================
     // ============ Generate Purchase Order Form ===========================
