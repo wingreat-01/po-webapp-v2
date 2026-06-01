@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0053)file:///C:/Users/WAREHOUSE-PC/Downloads/index_50.html -->
+<!-- saved from url=(0053)file:///C:/Users/WAREHOUSE-PC/Downloads/index_51.html -->
 <html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2941,11 +2941,26 @@
       const q = (m.globalQuery || '').trim().toLowerCase();
       const colFilters = m.columnFilters;
 
+      // Returns true if cell value `v` matches query `fq` (both already lowercased/trimmed).
+      // Uses exact-token matching: the query must appear as a whole word/token in the value,
+      // meaning the character immediately after the match (if any) must be a non-alphanumeric
+      // boundary. This prevents "SPYB 36" from matching "SPYB 36X24".
+      function cellMatches(v, fq) {
+        const idx = v.indexOf(fq);
+        if (idx === -1) return false;
+        const after = v[idx + fq.length];
+        // If the character right after the match is alphanumeric or a dash/slash continuation,
+        // it's a longer token — not an exact match.
+        if (after !== undefined && /[a-z0-9\-\/]/.test(after)) return false;
+        return true;
+      }
+
       let result = m.rows.filter(function (row) {
         if (q) {
           const hit = m.headers.some(function (h) {
             const v = row[h];
-            return v !== null && v !== undefined && String(v).toLowerCase().indexOf(q) !== -1;
+            if (v === null || v === undefined) return false;
+            return cellMatches(String(v).toLowerCase(), q);
           });
           if (!hit) return false;
         }
@@ -2954,7 +2969,7 @@
           if (!f) continue;
           const v = row[h];
           if (v === null || v === undefined) return false;
-          if (String(v).toLowerCase().indexOf(f.toLowerCase()) === -1) return false;
+          if (!cellMatches(String(v).toLowerCase(), f.toLowerCase())) return false;
         }
         return true;
       });
@@ -3424,17 +3439,23 @@
             const v = String(row[h] || '').trim();
             if (!v) continue;
             const vLow = v.toLowerCase();
-            if (vLow.indexOf(qLow) !== -1) {
-              const key = h + '\x00' + v;
-              if (!seen[key]) {
-                seen[key] = true;
-                results.push({ col: h, val: v, starts: vLow.indexOf(qLow) === 0 });
+            const idx = vLow.indexOf(qLow);
+            if (idx !== -1) {
+              const after = vLow[idx + qLow.length];
+              if (after === undefined || !/[a-z0-9\-\/]/.test(after)) {
+                const key = h + '\x00' + v;
+                if (!seen[key]) {
+                  seen[key] = true;
+                  results.push({ col: h, val: v, starts: idx === 0, exact: vLow === qLow });
+                }
               }
             }
           }
           if (results.length >= 80) break; // cap scan for large sheets
         }
         results.sort(function (a, b) {
+          if (a.exact && !b.exact) return -1;
+          if (!a.exact && b.exact) return 1;
           if (a.starts && !b.starts) return -1;
           if (!a.starts && b.starts) return 1;
           return a.val.localeCompare(b.val);
@@ -3566,17 +3587,23 @@
             const v = String(row[h] || '').trim();
             if (!v) continue;
             const vLow = v.toLowerCase();
-            if (vLow.indexOf(qLow) !== -1) {
-              const key = h + '\x00' + v;
-              if (!seen[key]) {
-                seen[key] = true;
-                results.push({ col: h, val: v, starts: vLow.indexOf(qLow) === 0 });
-              }
+            // Use exact-token match: the char after the match must be a boundary,
+            // so "SPYB 36" does not suggest "SPYB 36X24".
+            const idx = vLow.indexOf(qLow);
+            if (idx === -1) continue;
+            const after = vLow[idx + qLow.length];
+            if (after !== undefined && /[a-z0-9\-\/]/.test(after)) continue;
+            const key = h + '\x00' + v;
+            if (!seen[key]) {
+              seen[key] = true;
+              results.push({ col: h, val: v, starts: idx === 0, exact: vLow === qLow });
             }
           }
           if (results.length >= 80) break;
         }
         results.sort(function (a, b) {
+          if (a.exact && !b.exact) return -1;
+          if (!a.exact && b.exact) return 1;
           if (a.starts && !b.starts) return -1;
           if (!a.starts && b.starts) return 1;
           return a.val.localeCompare(b.val);
@@ -4476,12 +4503,8 @@
         const name = String(h || '').trim();
         return name && !HIDDEN_COLUMNS[name.toUpperCase().replace(/[^A-Z0-9]/g, '')];
       });
-      if (!m.loaded) {
-        showToast('Load ' + cfg.label + ' data first (click Reload).', 'error');
-        return;
-      }
       if (!headers.length) {
-        showToast('No columns found in ' + cfg.label + '. Add headers in row 1 of the sheet first.', 'error');
+        showToast('Load ' + cfg.label + ' data first, then add rows.', 'error');
         return;
       }
 
