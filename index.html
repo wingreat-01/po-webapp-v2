@@ -3023,9 +3023,9 @@
         if (orderHeader) { sortKey = orderHeader; sortDir = -1; }
       }
       if (sortKey) {
-        // Invoice module with no user-chosen sort: group by invoice/shipment number (newest group first),
+        // Invoice and Incoming modules with no user-chosen sort: group by shipment number (newest group first),
         // then sort within each group by ascending __rowIndex (matching backend sheet order).
-        if (STATE.activeModule === 'invoice' && !m.sortKey) {
+        if ((STATE.activeModule === 'invoice' || STATE.activeModule === 'incoming') && !m.sortKey) {
           var _invHdr = m.headers.find(function (h) {
             return h.toUpperCase().replace(/[^A-Z0-9]/g, '').indexOf('INVOICE') === 0;
           }) || m.headers.find(function (h) {
