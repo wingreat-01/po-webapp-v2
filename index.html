@@ -4559,7 +4559,7 @@
         const roll      = parseFloat(getVal('ROLL'))      || 0;
         const unitPrice = parseFloat(getVal('UNITPRICE')) || 0;
 
-        const sqm      = wm * lm * roll;
+        const sqm      = (wm === 24 && lm === 36) ? roll : wm * lm * roll;
         const totalUsd = sqm * unitPrice;
         const perRoll  = roll !== 0 ? totalUsd / roll : 0;
 
