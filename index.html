@@ -351,6 +351,29 @@
       .s-transit   { background: #D4641E; animation: pulse-transit   2.2s ease-in-out infinite; }
       .s-partial   { background: #f0c000; animation: pulse-partial   2.2s ease-in-out infinite; }
       .s-default   { background: #8b949e; box-shadow: 0 0 4px 1px rgba(139,148,158,0.35), 0 0 0 2px rgba(125,133,144,0.18); }
+      @keyframes pulse-over { 0%,100% { box-shadow: 0 0 5px 1px rgba(248,81,73,0.55), 0 0 0 2px rgba(248,81,73,0.2); } 50% { box-shadow: 0 0 12px 5px rgba(248,81,73,0.9), 0 0 0 3px rgba(248,81,73,0.45); } }
+      .s-over { background: #f85149; animation: pulse-over 2.2s ease-in-out infinite; }
+
+      /* Delivery tracking panel */
+      .delivery-panel { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 14px; }
+      .delivery-panel-title { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+      .delivery-panel-po { font-weight: 400; color: var(--accent); margin-left: 4px; }
+      .delivery-no-data { font-size: 12px; color: var(--muted); padding: 8px 0; }
+      .delivery-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px; }
+      .delivery-table th { text-align: left; padding: 5px 8px; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--border); }
+      .delivery-table td { padding: 5px 8px; border-bottom: 1px solid var(--border-col); }
+      .delivery-table tbody tr:last-child td { border-bottom: none; }
+      .delivery-qty { text-align: right; font-variant-numeric: tabular-nums; }
+      .delivery-summary { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 8px 0; }
+      .delivery-stat { display: flex; flex-direction: column; gap: 1px; }
+      .ds-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+      .delivery-stat strong { font-size: 15px; font-variant-numeric: tabular-nums; }
+      .delivery-badge { margin-left: auto; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+      .dlv-partial  { background: rgba(240,192,0,0.15);  color: #f0c000; border: 1px solid rgba(240,192,0,0.4);  }
+      .dlv-received { background: rgba(63,185,80,0.15);  color: #3fb950; border: 1px solid rgba(63,185,80,0.4);  }
+      .dlv-over     { background: rgba(248,81,73,0.15);  color: #f85149; border: 1px solid rgba(248,81,73,0.4);  }
+      .dlv-auto-btn { margin-top: 6px; font-size: 11px; padding: 3px 10px; cursor: pointer; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); border-radius: 4px; font-family: inherit; }
+      .dlv-auto-btn:hover { border-color: var(--accent); color: var(--accent); }
 
       td.status-cell { cursor: pointer; }
       td.status-cell:hover .status-dot { transform: scale(1.4); }
@@ -1275,6 +1298,7 @@
               <span class="legend-item dimmed" data-status="Partially Received" title="Filter by: Partially Received"><span class="status-dot s-partial"></span>Partially Received</span>
               <span class="legend-item dimmed" data-status="In-Transit" title="Filter by: In-Transit"><span class="status-dot s-transit"></span>In-Transit</span>
               <span class="legend-item dimmed" data-status="Confirmed" title="Filter by: Confirmed"><span class="status-dot s-confirmed"></span>Confirmed</span>
+              <span class="legend-item dimmed" data-status="Over Delivered" title="Filter by: Over Delivered"><span class="status-dot s-over"></span>Over Delivered</span>
               <span class="legend-item active" data-status="" title="Click to clear filter"><span class="status-dot s-default"></span>None</span>
             </span>
             <span id="syncInfo" style="font-size:11px;color:var(--muted);">↺ Synced 29s ago</span>
@@ -2414,6 +2438,7 @@
     const STATUS_PICKER_OPTIONS = [
       { value: 'Received',            cls: 's-received',  label: 'Received'            },
       { value: 'Partially Received',  cls: 's-partial',   label: 'Partially Received'  },
+      { value: 'Over Delivered',      cls: 's-over',      label: 'Over Delivered'      },
       { value: 'In-Transit',          cls: 's-transit',   label: 'In-Transit'          },
       { value: 'Confirmed',           cls: 's-confirmed', label: 'Confirmed'           },
       { value: '',                    cls: 's-default',   label: 'None'                },
@@ -2559,6 +2584,7 @@
       if (v === 'CONFIRMED')                         return 's-confirmed';
       if (v === 'INTRANSIT' || v === 'TRANSIT')      return 's-transit';
       if (v === 'PARTIALLYRECEIVED' || v === 'PARTIAL') return 's-partial';
+      if (v === 'OVERDELIVERED' || v === 'OVER') return 's-over';
       return 's-default';
     }
     function colCellHtml(header, value) {
@@ -4073,11 +4099,10 @@
         showToast('No columns in this tab. Add headers in row 1 of the sheet first.', 'error');
         return;
       }
-      const STATUS_OPTIONS = ['', 'Received', 'Partially Received', 'In-Transit', 'Confirmed'];
+      const STATUS_OPTIONS = ['', 'Received', 'Partially Received', 'Over Delivered', 'In-Transit', 'Confirmed'];
       let formHtml = '';
       headers.forEach(function (h) {
         if (!String(h || '').trim()) return;
-        if (HIDDEN_COLUMNS[h.toUpperCase().replace(/[^A-Z0-9]/g, '')]) return;
         const v = (isEdit && row && row[h] !== undefined && row[h] !== null) ? row[h] : '';
         const key = h.toUpperCase().replace(/[^A-Z0-9]/g, '');
         formHtml += '<div class="form-field"><label>' + escapeHtml(h) + '</label>';
@@ -4129,6 +4154,15 @@
         + '  </div>'
         + '</div>';
       $('modalMount').innerHTML = html;
+
+      // ── Delivery tracking: PO edit shows delivery history panel ──────────
+      if (STATE.activeModule === 'purchased' && isEdit && row) {
+        _injectDeliveryPanel(row);
+      }
+      // ── Delivery tracking: Incoming Shipment gets PO REF dropdown ────────
+      if (STATE.activeModule === 'incoming') {
+        _injectPoRefSelector(row);
+      }
 
       // ── Personal Notes: image logic ───────────────────────────────────────
       if (_isPN) {
@@ -5288,6 +5322,198 @@
       } else {
         gasRun('updateRow', { sheetName: tab, rowIndex: rowIndex, data: data }).then(_saveOnSuccess).catch(_saveOnFailure);
       }
+    }
+
+    // =====================================================================
+    // ============ Delivery Tracking Helpers ==============================
+    // =====================================================================
+    function _hdrNorm(h) { return h.toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+
+    function _findHdr(headers, keys) {
+      for (var i = 0; i < headers.length; i++) {
+        if (keys.indexOf(_hdrNorm(headers[i])) !== -1) return headers[i];
+      }
+      return null;
+    }
+
+    function _poOrderNoHdr(headers) {
+      return _findHdr(headers, ['ORDERNO','PONO','PONUMBER','PURCHASEORDERNO','ORDERNUM','ORDERNUMBER']);
+    }
+
+    function _poQtyHdr(headers) {
+      return _findHdr(headers, ['QUANTITY','QTY','QTYORDERED','ORDERED','ROLLS','TOTALROLLS','TOTALQTY']);
+    }
+
+    function _incPoRefHdr(headers) {
+      return _findHdr(headers, ['POREF','POREFERENCE','PONO','ORDERNO','PURCHASEORDER','PURCHASEORDERNO','ORDERREF']);
+    }
+
+    function _incQtyRcvdHdr(headers) {
+      return _findHdr(headers, ['QTYRECEIVED','QUANTITYRECEIVED','QTYREC','RECEIVEDQTY','ROLLSRECEIVED','RECEIVEDROLLS']);
+    }
+
+    function _incShipmentHdr(headers) {
+      return headers.find(function (h) {
+        return _hdrNorm(h).indexOf('SHIPMENT') === 0;
+      }) || null;
+    }
+
+    function _incDateRcvdHdr(headers) {
+      return _findHdr(headers, ['DATERECEIVED','RECEIVEDDATE','DATERECIVED']);
+    }
+
+    function _deliveryAutoStatus(received, ordered) {
+      if (received <= 0) return null;
+      if (ordered > 0 && received > ordered) return 'Over Delivered';
+      if (ordered > 0 && received >= ordered) return 'Received';
+      return 'Partially Received';
+    }
+
+    function _injectDeliveryPanel(poRow) {
+      var poHdrs   = STATE.modules.purchased.headers;
+      var incMod   = STATE.modules.incoming;
+
+      var poIdHdr    = _poOrderNoHdr(poHdrs);
+      var poQtyHdr   = _poQtyHdr(poHdrs);
+      var poId       = poIdHdr ? String(poRow[poIdHdr] || '').trim() : '';
+      var qtyOrdered = poQtyHdr ? (parseFloat(String(poRow[poQtyHdr] || '').replace(/,/g, '')) || 0) : 0;
+
+      var incPoRefHdr = _incPoRefHdr(incMod.headers);
+      var incQtyHdr   = _incQtyRcvdHdr(incMod.headers);
+      var incShipHdr  = _incShipmentHdr(incMod.headers);
+      var incDateHdr  = _incDateRcvdHdr(incMod.headers);
+
+      var deliveries = [];
+      if (poId && incPoRefHdr && incMod.loaded) {
+        incMod.rows.forEach(function (r) {
+          if (String(r[incPoRefHdr] || '').trim().toLowerCase() === poId.toLowerCase()) {
+            deliveries.push(r);
+          }
+        });
+      }
+
+      var totalReceived = 0;
+      deliveries.forEach(function (r) {
+        totalReceived += incQtyHdr ? (parseFloat(String(r[incQtyHdr] || '').replace(/,/g, '')) || 0) : 0;
+      });
+
+      var remaining  = qtyOrdered - totalReceived;
+      var autoStatus = _deliveryAutoStatus(totalReceived, qtyOrdered);
+
+      var html = '<div class="delivery-panel">'
+        + '<div class="delivery-panel-title">Delivery History'
+        + (poId ? '<span class="delivery-panel-po"> — PO: ' + escapeHtml(poId) + '</span>' : '')
+        + '</div>';
+
+      if (!incPoRefHdr) {
+        html += '<div class="delivery-no-data">Add a <strong>PO REF</strong> column to your Incoming Shipment sheet to link deliveries to this PO.</div>';
+      } else if (!incMod.loaded) {
+        html += '<div class="delivery-no-data">Incoming Shipment data not loaded. Navigate to Incoming Shipment and back to refresh.</div>';
+      } else if (deliveries.length === 0) {
+        html += '<div class="delivery-no-data">No deliveries linked to this PO yet. Set the <strong>PO REF</strong> field on incoming shipment records to link them here.</div>';
+      } else {
+        html += '<table class="delivery-table"><thead><tr><th>#</th>';
+        if (incShipHdr) html += '<th>Shipment</th>';
+        if (incDateHdr) html += '<th>Date Received</th>';
+        if (incQtyHdr)  html += '<th style="text-align:right">Qty Received</th>';
+        html += '<th style="text-align:right">Running Total</th></tr></thead><tbody>';
+        var running = 0;
+        deliveries.forEach(function (r, i) {
+          var qty = incQtyHdr ? (parseFloat(String(r[incQtyHdr] || '').replace(/,/g, '')) || 0) : 0;
+          running += qty;
+          html += '<tr><td>' + (i + 1) + '</td>'
+            + (incShipHdr ? '<td>' + escapeHtml(String(r[incShipHdr] || '')) + '</td>' : '')
+            + (incDateHdr ? '<td>' + escapeHtml(String(r[incDateHdr] || '')) + '</td>' : '')
+            + (incQtyHdr  ? '<td class="delivery-qty">' + qty.toLocaleString() + '</td>' : '')
+            + '<td class="delivery-qty">' + running.toLocaleString() + '</td></tr>';
+        });
+        html += '</tbody></table>';
+      }
+
+      if (qtyOrdered > 0 || totalReceived > 0) {
+        var bCls = autoStatus === 'Received' ? 'dlv-received' : autoStatus === 'Over Delivered' ? 'dlv-over' : 'dlv-partial';
+        html += '<div class="delivery-summary">'
+          + '<span class="delivery-stat"><span class="ds-label">Ordered</span><strong>' + (qtyOrdered ? qtyOrdered.toLocaleString() : '—') + '</strong></span>'
+          + '<span class="delivery-stat"><span class="ds-label">Received</span><strong>' + totalReceived.toLocaleString() + '</strong></span>'
+          + '<span class="delivery-stat"><span class="ds-label">Remaining</span><strong' + (remaining < 0 ? ' style="color:var(--danger)"' : '') + '>' + remaining.toLocaleString() + '</strong></span>';
+        if (autoStatus) html += '<span class="delivery-badge ' + bCls + '">' + escapeHtml(autoStatus) + '</span>';
+        html += '</div>';
+      }
+
+      html += '</div>';
+
+      var modalBody = document.querySelector('#modalMount .modal-body');
+      if (!modalBody) return;
+      var panel = document.createElement('div');
+      panel.innerHTML = html;
+      modalBody.appendChild(panel.firstChild);
+
+      if (autoStatus) {
+        document.querySelectorAll('#modalMount [data-field]').forEach(function (el) {
+          if (_hdrNorm(el.dataset.field) === 'STATUS' && el.tagName === 'SELECT') {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'dlv-auto-btn';
+            btn.textContent = 'Auto-set status: ' + autoStatus;
+            btn.addEventListener('click', function () {
+              var found = false;
+              for (var i = 0; i < el.options.length; i++) {
+                if (el.options[i].value === autoStatus) { found = true; break; }
+              }
+              if (!found) {
+                var opt = document.createElement('option');
+                opt.value = autoStatus; opt.textContent = autoStatus;
+                el.appendChild(opt);
+              }
+              el.value = autoStatus;
+              btn.textContent = 'Status set to: ' + autoStatus;
+              btn.disabled = true;
+            });
+            el.parentNode.appendChild(btn);
+          }
+        });
+      }
+    }
+
+    function _injectPoRefSelector(row) {
+      var purchMod = STATE.modules.purchased;
+      if (!purchMod.loaded || !purchMod.rows.length) return;
+
+      var poIdHdr = _poOrderNoHdr(purchMod.headers);
+      if (!poIdHdr) return;
+
+      var seen = {}, poNumbers = [];
+      purchMod.rows.forEach(function (r) {
+        var v = String(r[poIdHdr] || '').trim();
+        if (v && !seen[v]) { seen[v] = true; poNumbers.push(v); }
+      });
+      poNumbers.sort(function (a, b) { return b.localeCompare(a, undefined, { numeric: true }); });
+      if (!poNumbers.length) return;
+
+      var poRefEl = null;
+      document.querySelectorAll('#modalMount [data-field]').forEach(function (el) {
+        var k = _hdrNorm(el.dataset.field);
+        if (k === 'POREF' || k === 'POREFERENCE' || k === 'ORDERREF') poRefEl = el;
+      });
+      if (!poRefEl) return;
+
+      var currentVal = String(poRefEl.value || '');
+      var sel = document.createElement('select');
+      sel.dataset.field = poRefEl.dataset.field;
+      sel.style.cssText = 'width:100%;padding:8px 10px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:13px;outline:none;font-family:inherit;';
+
+      var blank = document.createElement('option');
+      blank.value = ''; blank.textContent = '— Select PO —';
+      sel.appendChild(blank);
+
+      poNumbers.forEach(function (v) {
+        var opt = document.createElement('option');
+        opt.value = v; opt.textContent = v;
+        if (v === currentVal) opt.selected = true;
+        sel.appendChild(opt);
+      });
+
+      poRefEl.parentNode.replaceChild(sel, poRefEl);
     }
 
     function deleteCurrentRow(rowIndex) {
