@@ -1133,6 +1133,9 @@
       }
       .po-items-table td.center { text-align: center; }
       .po-items-table td.right { text-align: right; }
+      .po-items-table td.po-editable { text-align: right; outline: none; cursor: text; }
+      .po-items-table td.po-editable:hover { background: #fffbe6 !important; }
+      .po-items-table td.po-editable:focus { background: #fff9c4 !important; box-shadow: inset 0 -2px 0 #f0c000; }
       .po-items-table tr:nth-child(even) td { background: #fafafa; }
       .po-comments-label {
         background: #555; color: #fff; font-size: 11px; font-weight: 700;
@@ -1165,6 +1168,8 @@
           padding: 20px 28px !important;
         }
         @page { margin: 0.5in; size: letter portrait; }
+        .po-items-table td.po-editable:hover,
+        .po-items-table td.po-editable:focus { background: transparent !important; box-shadow: none !important; }
       }
     </style>
     </head>
@@ -3995,12 +4000,12 @@
           + '<td class="center">' + escapeHtml(hSize      ? String(r[hSize]      || '') : '') + '</td>'
           + '<td class="center">' + escapeHtml(hQty       ? String(r[hQty]       || '') : '') + '</td>'
           + '<td class="center">' + escapeHtml(hUnit      ? String(r[hUnit]      || '') : '') + '</td>'
-          + '<td class="right">'  + escapeHtml(hUnitPrice ? String(r[hUnitPrice] || '') : '') + '</td>'
+          + '<td class="right po-editable" contenteditable="true">'  + escapeHtml(hUnitPrice ? String(r[hUnitPrice] || '') : '') + '</td>'
           + '</tr>';
       });
       // Pad to minimum rows for clean printing
       for (let i = rows.length; i < MIN_ROWS; i++) {
-        itemRows += '<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>';
+        itemRows += '<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td class="po-editable" contenteditable="true"></td></tr>';
       }
 
       const formHtml = '<div class="po-form-wrap" id="poFormBody">'
@@ -4534,9 +4539,17 @@
     function openBatchModal(moduleId) {
       const cfg = MODULES[moduleId];
       const m = STATE.modules[moduleId];
-      // Check raw headers first — if none, data isn't loaded yet
+      // If headers not ready yet, trigger a load and auto-open when data arrives
       if (!m.headers.length) {
-        showToast('Data is still loading. Please wait a moment and try again.', 'error');
+        if (!m.loading && !m.loaded) loadActiveModule();
+        showToast('Loading ' + cfg.label + ' data… opening when ready.', 'success');
+        var _waitOpen = setInterval(function () {
+          if (STATE.modules[moduleId].headers.length) {
+            clearInterval(_waitOpen);
+            openBatchModal(moduleId);
+          }
+        }, 400);
+        setTimeout(function () { clearInterval(_waitOpen); }, 15000);
         return;
       }
       // Filter out columns hidden from the table view; fall back to all headers if
