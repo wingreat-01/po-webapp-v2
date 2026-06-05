@@ -229,7 +229,8 @@
       .btn svg { width: 14px; height: 14px; }
 
       /* Content */
-      .content { flex: 1; overflow: auto; padding: 0 24px 24px; min-width: 0; }
+      .content { flex: 1; overflow: hidden; padding: 0 24px 24px; min-width: 0; display: flex; flex-direction: column; }
+      #tableContainer { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
       .meta-row {
         padding: 12px 0;
@@ -247,12 +248,13 @@
         background: var(--panel);
         border: 1px solid var(--border);
         border-radius: 8px;
-        overflow-x: auto;
-        max-width: 100%;
+        overflow: auto;
+        flex: 1;
+        min-height: 0;
       }
       table { width: 100%; table-layout: auto; border-collapse: collapse; font-size: 13px; }
       thead th {
-        position: sticky; top: 0;
+        position: sticky; top: 0; z-index: 1;
         background: var(--panel-2);
         color: var(--accent); font-weight: 700;
         text-transform: uppercase; letter-spacing: 0.5px; font-size: 11px;
@@ -2273,11 +2275,13 @@
             _syncTabConfigFromSheet().then(function () {
               switchModule('purchased');
               startAutoRefresh();
+              prefetchAllModules();
             });
           } else {
             _syncTabConfigFromSheet();
             switchModule('purchased');
             startAutoRefresh();
+            prefetchAllModules();
           }
         })
         .catch(function (err) {
@@ -2703,6 +2707,10 @@
         loadInvoiceSubTab(m.invoiceTab || INVOICE_TABS[0]);
       } else if (!m.loaded && !m.loading) {
         loadActiveModule();
+      } else if (!m.loaded && m.loading) {
+        // Background prefetch is already in-flight — show spinner and let the prefetch callback render
+        $('tableContainer').innerHTML = '<div class="loader"><div class="spinner"></div>Loading…</div>';
+        renderSyncInfo();
       } else {
         applyFiltersAndRender();
         renderSyncInfo();
@@ -5380,6 +5388,10 @@
       return _findHdr(headers, ['DATERECEIVED','RECEIVEDDATE','DATERECIVED']);
     }
 
+    function _itemCodeHdr(headers) {
+      return _findHdr(headers, ['ITEMCODE','ITEM','ITEMNO','ITEMNUM','PRODUCTCODE','SKUCODE','SKU','CODE']);
+    }
+
     function _deliveryAutoStatus(received, ordered) {
       if (received <= 0) return null;
       if (ordered > 0 && received > ordered) return 'Over Delivered';
@@ -5393,20 +5405,29 @@
 
       var poIdHdr    = _poOrderNoHdr(poHdrs);
       var poQtyHdr   = _poQtyHdr(poHdrs);
+      var poItemHdr  = _itemCodeHdr(poHdrs);
       var poId       = poIdHdr ? String(poRow[poIdHdr] || '').trim() : '';
       var qtyOrdered = poQtyHdr ? (parseFloat(String(poRow[poQtyHdr] || '').replace(/,/g, '')) || 0) : 0;
+      // Normalized item code from PO row — used for per-item matching
+      var poItemRaw  = poItemHdr ? String(poRow[poItemHdr] || '').trim() : '';
+      var poItemCode = _hdrNorm(poItemRaw);
 
       var incPoRefHdr = _incPoRefHdr(incMod.headers);
       var incQtyHdr   = _incQtyRcvdHdr(incMod.headers);
       var incShipHdr  = _incShipmentHdr(incMod.headers);
       var incDateHdr  = _incDateRcvdHdr(incMod.headers);
+      var incItemHdr  = _itemCodeHdr(incMod.headers);
 
       var deliveries = [];
       if (poId && incPoRefHdr && incMod.loaded) {
         incMod.rows.forEach(function (r) {
-          if (String(r[incPoRefHdr] || '').trim().toLowerCase() === poId.toLowerCase()) {
-            deliveries.push(r);
+          if (String(r[incPoRefHdr] || '').trim().toLowerCase() !== poId.toLowerCase()) return;
+          // When both sheets have an item code column, only count rows whose item code matches this PO line item
+          if (poItemCode && incItemHdr) {
+            var incItem = _hdrNorm(String(r[incItemHdr] || ''));
+            if (incItem && incItem !== poItemCode) return;
           }
+          deliveries.push(r);
         });
       }
 
@@ -5421,6 +5442,7 @@
       var html = '<div class="delivery-panel">'
         + '<div class="delivery-panel-title">Delivery History'
         + (poId ? '<span class="delivery-panel-po"> — PO: ' + escapeHtml(poId) + '</span>' : '')
+        + (poItemRaw ? '<span class="delivery-panel-po"> · ' + escapeHtml(poItemRaw) + '</span>' : '')
         + '</div>';
 
       if (!incPoRefHdr) {
@@ -5428,7 +5450,9 @@
       } else if (!incMod.loaded) {
         html += '<div class="delivery-no-data">Incoming Shipment data not loaded. Navigate to Incoming Shipment and back to refresh.</div>';
       } else if (deliveries.length === 0) {
-        html += '<div class="delivery-no-data">No deliveries linked to this PO yet. Set the <strong>PO REF</strong> field on incoming shipment records to link them here.</div>';
+        html += '<div class="delivery-no-data">No deliveries linked to this PO line item yet.'
+          + (poId ? ' Tag incoming shipment rows with <strong>PO REF = ' + escapeHtml(poId) + '</strong>' : '')
+          + (poItemRaw ? ' and <strong>Item Code = ' + escapeHtml(poItemRaw) + '</strong>' : '') + '.</div>';
       } else {
         html += '<table class="delivery-table"><thead><tr><th>#</th>';
         if (incShipHdr) html += '<th>Shipment</th>';
@@ -6375,6 +6399,48 @@
     function startAutoRefresh() {
       if (_refreshTimer) clearInterval(_refreshTimer);
       _refreshTimer = setInterval(silentRefresh, AUTO_REFRESH_MS);
+    }
+
+    // After login: silently pre-load all modules in the background so navigation
+    // to any tab is instant instead of waiting for a cold GAS fetch.
+    function prefetchAllModules() {
+      var PREFETCH = ['purchased', 'incoming', 'samples', 'notes'];
+      var stagger = 0;
+      PREFETCH.forEach(function (moduleId) {
+        if (!MODULES[moduleId]) return;
+        var m = STATE.modules[moduleId];
+        if (m.loaded || m.loading) return; // already handled (active module loads itself)
+        stagger += 600; // stagger each request 600 ms apart to avoid hammering GAS
+        (function (mid, delay) {
+          setTimeout(function () {
+            var mx = STATE.modules[mid];
+            if (mx.loaded || mx.loading) return; // re-check after delay
+            var tab = tabFor(mid);
+            if (!tab) return;
+            mx.loading = true;
+            gasRun('getRows', { sheetName: tab, moduleId: mid })
+              .then(function (result) {
+                mx.loading = false;
+                if (!result || result.error || result.disabled) return;
+                if (mx.loaded) return; // user navigated here and loaded it while we were fetching
+                var headers = result.headers || [];
+                var rows = excludeReceived(mid, headers, result.rows || []);
+                mx.headers = headers;
+                mx.rows    = rows;
+                mx.sheetNameActual = result.sheetName || '';
+                mx.syncedAt = Date.now();
+                mx.loaded  = true;
+                saveCachedData(mid, mx.headers, mx.rows, mx.sheetNameActual);
+                // If the user navigated to this module while the fetch was running, render now
+                if (STATE.activeModule === mid) {
+                  applyFiltersAndRender();
+                  renderSyncInfo();
+                }
+              })
+              .catch(function () { mx.loading = false; });
+          }, delay);
+        }(moduleId, stagger));
+      });
     }
 
     function silentRefresh() {
