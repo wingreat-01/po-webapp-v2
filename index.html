@@ -298,15 +298,13 @@
         border-bottom: 1px solid var(--border-row);
         border-right: 1px solid var(--border-col);
         color: var(--text);
-        white-space: nowrap;
-        overflow: hidden; text-overflow: ellipsis;
+        white-space: normal;
+        overflow-wrap: break-word;
+        word-break: break-word;
         vertical-align: middle;
       }
-      /* Remarks / notes cells: expand to show all lines */
+      /* Remarks / notes cells: align top */
       tbody td:has(.remarks-cell-content) {
-        white-space: normal;
-        overflow: visible;
-        text-overflow: unset;
         vertical-align: top;
       }
       .remarks-cell-content {
