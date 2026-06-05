@@ -3094,6 +3094,46 @@
       syncLegendActive();
     }
 
+    // Builds the HTML string for a single table row. Used by renderTable for both
+    // the initial batch and the async continuation batches.
+    function _buildRowHtml(row, headers, showSign, sigColHdr) {
+      var html = '<tr>';
+      headers.forEach(function (h) {
+        var v = row[h];
+        var hKey = h.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (hKey === 'STATUS') {
+          if (isAdmin()) {
+            html += '<td' + colStyle(h, false) + ' class="status-cell" data-row="' + row.__rowIndex + '" data-field="' + escapeHtml(h) + '" title="Click to change status">' + colCellHtml(h, v) + '</td>';
+          } else {
+            html += '<td' + colStyle(h, false) + '>' + colCellHtml(h, v) + '</td>';
+          }
+        } else {
+          var tdCls = hKey === 'ITEMCODE' ? ' class="col-itemcode"' : '';
+          html += '<td' + colStyle(h, false) + tdCls + ' title="' + escapeHtml(v) + '">' + colCellHtml(h, v) + '</td>';
+        }
+      });
+      if (row.__rowIndex < 0) {
+        html += '<td class="actions"><span style="font-size:11px;color:var(--muted)">Syncing…</span></td></tr>';
+      } else {
+        html += '<td class="actions">';
+        if (STATE.activeModule === 'personalnotes') {
+          html += '<button class="btn btn-icon btn-view-imgs" data-viewimgs="' + row.__rowIndex + '" title="View Images"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></button>';
+        }
+        if (isAdmin()) {
+          html += '<button class="btn btn-icon" data-edit="' + row.__rowIndex + '" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>';
+        }
+        if (showSign && !isAdmin()) {
+          var _signed = row[sigColHdr];
+          html += '<button class="btn btn-icon' + (_signed ? ' btn-sign-approved' : '') + '" data-sign="' + row.__rowIndex + '" title="' + (_signed ? 'View / Re-sign' : 'Sign &amp; Approve') + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>';
+        }
+        if (isAdmin()) {
+          html += '<button class="btn btn-icon btn-danger" data-delete="' + row.__rowIndex + '" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>';
+        }
+        html += '</td></tr>';
+      }
+      return html;
+    }
+
     function renderTable() {
       const m = activeMod();
       const cfg = activeCfg();
@@ -3153,52 +3193,39 @@
 
       html += '</thead><tbody>';
 
+      const _FIRST_BATCH = 60;
+      const _BATCH_SIZE  = 80;
+
       if (rows.length === 0) {
         html += '<tr><td colspan="' + (headers.length + 1) + '" class="empty-state">No ' + escapeHtml(cfg.recordType) + ' match your filters.</td></tr>';
       } else {
-        rows.forEach(function (row) {
-          html += '<tr>';
-          headers.forEach(function (h) {
-            const v = row[h];
-            const hKey = h.toUpperCase().replace(/[^A-Z0-9]/g, '');
-            if (hKey === 'STATUS') {
-              if (isAdmin()) {
-                html += '<td' + colStyle(h, false) + ' class="status-cell" data-row="' + row.__rowIndex + '" data-field="' + escapeHtml(h) + '" title="Click to change status">' + colCellHtml(h, v) + '</td>';
-              } else {
-                html += '<td' + colStyle(h, false) + '>' + colCellHtml(h, v) + '</td>';
-              }
-            } else {
-              const _tdCls = hKey === 'ITEMCODE' ? ' class="col-itemcode"' : '';
-              html += '<td' + colStyle(h, false) + _tdCls + ' title="' + escapeHtml(v) + '">' + colCellHtml(h, v) + '</td>';
-            }
-          });
-          if (row.__rowIndex < 0) {
-            html += '<td class="actions"><span style="font-size:11px;color:var(--muted)">Syncing…</span></td></tr>';
-          } else {
-            html += '<td class="actions">';
-            // Personal Notes: View Images button
-            if (STATE.activeModule === 'personalnotes') {
-              html += '<button class="btn btn-icon btn-view-imgs" data-viewimgs="' + row.__rowIndex + '" title="View Images"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></button>';
-            }
-            if (isAdmin()) {
-              html += '<button class="btn btn-icon" data-edit="' + row.__rowIndex + '" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>';
-            }
-            if (_showSign && !isAdmin()) {
-              var _signed = row[_sigColHdr];
-              html += '<button class="btn btn-icon' + (_signed ? ' btn-sign-approved' : '') + '" data-sign="' + row.__rowIndex + '" title="' + (_signed ? 'View / Re-sign' : 'Sign &amp; Approve') + '">'
-                + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'
-                + '<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>'
-                + '</svg></button>';
-            }
-            if (isAdmin()) {
-              html += '<button class="btn btn-icon btn-danger" data-delete="' + row.__rowIndex + '" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>';
-            }
-            html += '</td></tr>';
-          }
-        });
+        var _firstEnd = Math.min(_FIRST_BATCH, rows.length);
+        for (var _ri = 0; _ri < _firstEnd; _ri++) {
+          html += _buildRowHtml(rows[_ri], headers, _showSign, _sigColHdr);
+        }
       }
       html += '</tbody></table></div>';
       $('tableContainer').innerHTML = html;
+
+      // Append remaining rows asynchronously so the first batch paints immediately
+      if (rows.length > _FIRST_BATCH) {
+        var _appendMod = STATE.activeModule;
+        var _appendOffset = _FIRST_BATCH;
+        var _snapRows = rows; // snapshot reference — filtered array won't change mid-render
+        (function _appendBatch() {
+          if (STATE.activeModule !== _appendMod) return; // user switched modules — abort
+          var tbody = $('tableContainer') && $('tableContainer').querySelector('tbody');
+          if (!tbody) return;
+          var end = Math.min(_appendOffset + _BATCH_SIZE, _snapRows.length);
+          var batchHtml = '';
+          for (var _i = _appendOffset; _i < end; _i++) {
+            batchHtml += _buildRowHtml(_snapRows[_i], headers, _showSign, _sigColHdr);
+          }
+          tbody.insertAdjacentHTML('beforeend', batchHtml);
+          _appendOffset = end;
+          if (_appendOffset < _snapRows.length) setTimeout(_appendBatch, 0);
+        }());
+      }
 
       // column resize handles — document-level listeners for reliable tracking at any drag speed
       document.querySelectorAll('.col-resizer[data-resizer]').forEach(function (handle) {
@@ -3252,37 +3279,8 @@
         table.style.minWidth = total + 'px';
       }
 
-      // edit / delete actions
-      document.querySelectorAll('button[data-edit]').forEach(function (b) {
-        b.addEventListener('click', function () {
-          const idx = parseInt(b.dataset.edit, 10);
-          const row = activeMod().rows.find(function (r) { return r.__rowIndex === idx; });
-          if (row) openModal('edit', row);
-        });
-      });
-      document.querySelectorAll('button[data-delete]').forEach(function (b) {
-        b.addEventListener('click', function () {
-          const idx = parseInt(b.dataset.delete, 10);
-          if (confirm('Delete this ' + activeCfg().recordType.replace(/s$/,'') + '? This cannot be undone.')) {
-            deleteCurrentRow(idx);
-          }
-        });
-      });
-
-      // Personal Notes: view images — handled by delegated listener on document (see bottom of script)
-
-      document.querySelectorAll('button[data-sign]').forEach(function (b) {
-        b.addEventListener('click', function () {
-          showSignatureModal(parseInt(b.dataset.sign, 10));
-        });
-      });
-
-      document.querySelectorAll('td.status-cell').forEach(function (td) {
-        td.addEventListener('click', function (e) {
-          e.stopPropagation();
-          showStatusPicker(td, parseInt(td.dataset.row, 10), td.dataset.field);
-        });
-      });
+      // edit / delete / sign / status clicks — handled by delegated listener on $('tableContainer')
+      // so async-appended rows work without re-wiring (see init section below renderTable).
     }
 
     // =====================================================================
@@ -4094,6 +4092,37 @@
     function closePoFormPreview() {
       $('poFormPrintRoot').innerHTML = '';
     }
+    // Delegated listener for all table row actions — edit, delete, sign, status picker.
+    // Lives on the container element so it survives innerHTML replacement and works for
+    // rows appended asynchronously by the incremental renderer.
+    $('tableContainer').addEventListener('click', function (e) {
+      var editBtn   = e.target.closest('button[data-edit]');
+      var deleteBtn = e.target.closest('button[data-delete]');
+      var signBtn   = e.target.closest('button[data-sign]');
+      var statusTd  = e.target.closest('td.status-cell');
+      if (editBtn) {
+        var _eIdx = parseInt(editBtn.dataset.edit, 10);
+        var _eRow = activeMod().rows.find(function (r) { return r.__rowIndex === _eIdx; });
+        if (_eRow) openModal('edit', _eRow);
+        return;
+      }
+      if (deleteBtn) {
+        var _dIdx = parseInt(deleteBtn.dataset.delete, 10);
+        if (confirm('Delete this ' + activeCfg().recordType.replace(/s$/, '') + '? This cannot be undone.')) {
+          deleteCurrentRow(_dIdx);
+        }
+        return;
+      }
+      if (signBtn) {
+        showSignatureModal(parseInt(signBtn.dataset.sign, 10));
+        return;
+      }
+      if (statusTd) {
+        e.stopPropagation();
+        showStatusPicker(statusTd, parseInt(statusTd.dataset.row, 10), statusTd.dataset.field);
+      }
+    });
+
     $('colVisBtn').addEventListener('click', function (e) { e.stopPropagation(); openColVisPopover(); });
     $('addBtn').addEventListener('click', function () {
       if (STATE.activeModule === 'invoice' || STATE.activeModule === 'incoming' || STATE.activeModule === 'purchased') openBatchModal(STATE.activeModule);
