@@ -3094,6 +3094,44 @@
       syncLegendActive();
     }
 
+    // Wires click listeners for edit/delete/sign/status buttons in the table.
+    // Uses :not([data-wired]) so it is safe to call after every render batch
+    // without double-firing on already-wired buttons.
+    function _wireTableActions() {
+      $('tableContainer').querySelectorAll('button[data-edit]:not([data-wired])').forEach(function (b) {
+        b.dataset.wired = '1';
+        b.addEventListener('click', function () {
+          var idx = parseInt(b.dataset.edit, 10);
+          var row = activeMod().rows.find(function (r) { return r.__rowIndex === idx; });
+          if (row) openModal('edit', row);
+        });
+      });
+      $('tableContainer').querySelectorAll('button[data-delete]:not([data-wired])').forEach(function (b) {
+        b.dataset.wired = '1';
+        b.addEventListener('click', function () {
+          var idx = parseInt(b.dataset.delete, 10);
+          if (confirm('Delete this ' + activeCfg().recordType.replace(/s$/, '') + '? This cannot be undone.')) {
+            deleteCurrentRow(idx);
+          }
+        });
+      });
+      $('tableContainer').querySelectorAll('button[data-sign]:not([data-wired])').forEach(function (b) {
+        b.dataset.wired = '1';
+        b.addEventListener('click', function () { showSignatureModal(parseInt(b.dataset.sign, 10)); });
+      });
+      $('tableContainer').querySelectorAll('button[data-viewimgs]:not([data-wired])').forEach(function (b) {
+        b.dataset.wired = '1';
+        b.addEventListener('click', function () { showImageViewer(parseInt(b.dataset.viewimgs, 10)); });
+      });
+      $('tableContainer').querySelectorAll('td.status-cell:not([data-wired])').forEach(function (td) {
+        td.dataset.wired = '1';
+        td.addEventListener('click', function (e) {
+          e.stopPropagation();
+          showStatusPicker(td, parseInt(td.dataset.row, 10), td.dataset.field);
+        });
+      });
+    }
+
     // Builds the HTML string for a single table row. Used by renderTable for both
     // the initial batch and the async continuation batches.
     function _buildRowHtml(row, headers, showSign, sigColHdr) {
@@ -3206,6 +3244,7 @@
       }
       html += '</tbody></table></div>';
       $('tableContainer').innerHTML = html;
+      _wireTableActions();
 
       // Append remaining rows asynchronously so the first batch paints immediately
       if (rows.length > _FIRST_BATCH) {
@@ -3222,6 +3261,7 @@
             batchHtml += _buildRowHtml(_snapRows[_i], headers, _showSign, _sigColHdr);
           }
           tbody.insertAdjacentHTML('beforeend', batchHtml);
+          _wireTableActions();
           _appendOffset = end;
           if (_appendOffset < _snapRows.length) setTimeout(_appendBatch, 0);
         }());
@@ -4092,37 +4132,6 @@
     function closePoFormPreview() {
       $('poFormPrintRoot').innerHTML = '';
     }
-    // Delegated listener for all table row actions — edit, delete, sign, status picker.
-    // Lives on the container element so it survives innerHTML replacement and works for
-    // rows appended asynchronously by the incremental renderer.
-    $('tableContainer').addEventListener('click', function (e) {
-      var editBtn   = e.target.closest('button[data-edit]');
-      var deleteBtn = e.target.closest('button[data-delete]');
-      var signBtn   = e.target.closest('button[data-sign]');
-      var statusTd  = e.target.closest('td.status-cell');
-      if (editBtn) {
-        var _eIdx = parseInt(editBtn.dataset.edit, 10);
-        var _eRow = activeMod().rows.find(function (r) { return r.__rowIndex === _eIdx; });
-        if (_eRow) openModal('edit', _eRow);
-        return;
-      }
-      if (deleteBtn) {
-        var _dIdx = parseInt(deleteBtn.dataset.delete, 10);
-        if (confirm('Delete this ' + activeCfg().recordType.replace(/s$/, '') + '? This cannot be undone.')) {
-          deleteCurrentRow(_dIdx);
-        }
-        return;
-      }
-      if (signBtn) {
-        showSignatureModal(parseInt(signBtn.dataset.sign, 10));
-        return;
-      }
-      if (statusTd) {
-        e.stopPropagation();
-        showStatusPicker(statusTd, parseInt(statusTd.dataset.row, 10), statusTd.dataset.field);
-      }
-    });
-
     $('colVisBtn').addEventListener('click', function (e) { e.stopPropagation(); openColVisPopover(); });
     $('addBtn').addEventListener('click', function () {
       if (STATE.activeModule === 'invoice' || STATE.activeModule === 'incoming' || STATE.activeModule === 'purchased') openBatchModal(STATE.activeModule);
