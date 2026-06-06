@@ -3119,10 +3119,6 @@
         b.dataset.wired = '1';
         b.addEventListener('click', function () { showSignatureModal(parseInt(b.dataset.sign, 10)); });
       });
-      $('tableContainer').querySelectorAll('button[data-viewimgs]:not([data-wired])').forEach(function (b) {
-        b.dataset.wired = '1';
-        b.addEventListener('click', function () { showImageViewer(parseInt(b.dataset.viewimgs, 10)); });
-      });
       $('tableContainer').querySelectorAll('td.status-cell:not([data-wired])').forEach(function (td) {
         td.dataset.wired = '1';
         td.addEventListener('click', function (e) {
