@@ -5103,11 +5103,30 @@
           });
         }
 
-        // Load item codes then wire events
+        // Load item codes then wire events.
+        // Merges GAS ITEMCODES sheet (if present) with purchased-order rows already in memory,
+        // so autocomplete works even if the ITEMCODES sheet is missing or empty.
         fetchItemCodes(function (map) {
-          if (!Object.keys(map).length) return; // nothing to wire
-          entries = Object.keys(map).map(function (c) {
-            return { code: c, desc: map[c], descU: String(map[c]).toUpperCase() };
+          var combined = Object.assign({}, map);
+          var purMod = STATE.modules.purchased;
+          if (purMod && purMod.loaded && purMod.rows && purMod.rows.length) {
+            var _icHdr = null, _idHdr = null;
+            purMod.headers.forEach(function (h) {
+              var k = h.toUpperCase().replace(/[^A-Z0-9]/g, '');
+              if (!_icHdr && (k === 'ITEMCODE' || k === 'ITEM')) _icHdr = h;
+              if (!_idHdr && k.indexOf('DESCRIPTION') !== -1) _idHdr = h;
+            });
+            if (_icHdr) {
+              purMod.rows.forEach(function (r) {
+                var code = String(r[_icHdr] || '').trim().toUpperCase();
+                if (!code || combined[code] !== undefined) return;
+                combined[code] = _idHdr ? String(r[_idHdr] || '').trim() : '';
+              });
+            }
+          }
+          if (!Object.keys(combined).length) return; // nothing to wire
+          entries = Object.keys(combined).map(function (c) {
+            return { code: c, desc: combined[c], descU: String(combined[c]).toUpperCase() };
           });
 
           // Delegated focus — detect when an ITEM CODE cell gets focus
