@@ -2979,35 +2979,30 @@
       const q = (m.globalQuery || '').trim().toLowerCase();
       const colFilters = m.columnFilters;
 
-      // Returns true if cell value `v` matches query `fq` (both already lowercased/trimmed).
-      // Uses exact-token matching: the query must appear as a whole word/token in the value,
-      // meaning the character immediately after the match (if any) must be a non-alphanumeric
-      // boundary. This prevents "SPYB 36" from matching "SPYB 36X24".
-      function cellMatches(v, fq) {
-        const idx = v.indexOf(fq);
-        if (idx === -1) return false;
-        const after = v[idx + fq.length];
-        // If the character right after the match is alphanumeric or a dash/slash continuation,
-        // it's a longer token — not an exact match.
-        if (after !== undefined && /[a-z0-9\-\/]/.test(after)) return false;
-        return true;
+      // Multi-term substring search: split the query on whitespace and require EVERY term
+      // to appear (as a plain substring) in at least one column of the row. Plain substring
+      // (not token-boundary) so "1178" matches "1178-ECF BLK 48X50"; multi-term AND so
+      // "satin 48" finds a Satin row of size 48 regardless of which columns hold each term.
+      const terms = q ? q.split(/\s+/).filter(Boolean) : [];
+
+      function rowHasTerm(row, term) {
+        return m.headers.some(function (h) {
+          const v = row[h];
+          if (v === null || v === undefined) return false;
+          return String(v).toLowerCase().indexOf(term) !== -1;
+        });
       }
 
       let result = m.rows.filter(function (row) {
-        if (q) {
-          const hit = m.headers.some(function (h) {
-            const v = row[h];
-            if (v === null || v === undefined) return false;
-            return cellMatches(String(v).toLowerCase(), q);
-          });
-          if (!hit) return false;
+        for (let ti = 0; ti < terms.length; ti++) {
+          if (!rowHasTerm(row, terms[ti])) return false;
         }
         for (const h in colFilters) {
           const f = colFilters[h];
           if (!f) continue;
           const v = row[h];
           if (v === null || v === undefined) return false;
-          if (!cellMatches(String(v).toLowerCase(), f.toLowerCase())) return false;
+          if (String(v).toLowerCase().indexOf(f.trim().toLowerCase()) === -1) return false;
         }
         return true;
       });
@@ -3513,13 +3508,10 @@
             const vLow = v.toLowerCase();
             const idx = vLow.indexOf(qLow);
             if (idx !== -1) {
-              const after = vLow[idx + qLow.length];
-              if (after === undefined || !/[a-z0-9\-\/]/.test(after)) {
-                const key = h + '\x00' + v;
-                if (!seen[key]) {
-                  seen[key] = true;
-                  results.push({ col: h, val: v, starts: idx === 0, exact: vLow === qLow });
-                }
+              const key = h + '\x00' + v;
+              if (!seen[key]) {
+                seen[key] = true;
+                results.push({ col: h, val: v, starts: idx === 0, exact: vLow === qLow });
               }
             }
           }
@@ -3659,12 +3651,10 @@
             const v = String(row[h] || '').trim();
             if (!v) continue;
             const vLow = v.toLowerCase();
-            // Use exact-token match: the char after the match must be a boundary,
-            // so "SPYB 36" does not suggest "SPYB 36X24".
+            // Plain substring match — ranked below so exact matches, then prefix matches,
+            // float to the top. Lets "1178" suggest "1178-ECF BLK 48X50".
             const idx = vLow.indexOf(qLow);
             if (idx === -1) continue;
-            const after = vLow[idx + qLow.length];
-            if (after !== undefined && /[a-z0-9\-\/]/.test(after)) continue;
             const key = h + '\x00' + v;
             if (!seen[key]) {
               seen[key] = true;
