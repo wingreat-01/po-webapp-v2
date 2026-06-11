@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node -e \"const fs=require\\('fs'\\);const html=fs.readFileSync\\('c:/Users/Lisa/PO-WEBAPP/Index.html','utf8'\\);const m=html.match\\(/<script>\\([\\\\s\\\\S]*?\\)<\\\\/script>/\\);if\\(!m\\){console.log\\('NO SCRIPT BLOCK'\\);process.exit\\(0\\)}try{new Function\\(m[1]\\);console.log\\('SCRIPT IS VALID JS'\\)}catch\\(e\\){console.log\\('SYNTAX ERROR:',e.message\\)}\")"
+      "Bash(node -e \"const fs=require\\('fs'\\);const html=fs.readFileSync\\('c:/Users/Lisa/PO-WEBAPP/Index.html','utf8'\\);const m=html.match\\(/<script>\\([\\\\s\\\\S]*?\\)<\\\\/script>/\\);if\\(!m\\){console.log\\('NO SCRIPT BLOCK'\\);process.exit\\(0\\)}try{new Function\\(m[1]\\);console.log\\('SCRIPT IS VALID JS'\\)}catch\\(e\\){console.log\\('SYNTAX ERROR:',e.message\\)}\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }
