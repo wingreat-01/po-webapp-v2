@@ -204,6 +204,48 @@
       .global-ac-item:hover, .global-ac-item.ac-active { background: var(--row-hover); }
       .global-ac-col { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
       .global-ac-val { color: var(--text); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      /* Multi-select checkbox layout inside the autosuggest */
+      .global-ac-item { display: flex; align-items: center; gap: 9px; }
+      .global-ac-item.ac-pinned { background: var(--row-hover); }
+      .global-ac-check {
+        flex: 0 0 auto; width: 15px; height: 15px; border-radius: 3px;
+        border: 1.5px solid var(--border); background: var(--panel-2);
+        display: inline-flex; align-items: center; justify-content: center;
+        color: #fff; font-size: 11px; line-height: 1;
+      }
+      .global-ac-item.ac-pinned .global-ac-check { background: var(--accent); border-color: var(--accent); }
+      .global-ac-text { min-width: 0; flex: 1; }
+      .global-ac-text > .global-ac-col, .global-ac-text > .global-ac-val { display: block; }
+      .global-ac-head {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 5px 10px; font-size: 11px; color: var(--muted);
+        border-bottom: 1px solid var(--border); position: sticky; top: 0;
+        background: var(--panel); z-index: 1;
+      }
+      .global-ac-clear { color: var(--accent); cursor: pointer; font-weight: 600; }
+      .global-ac-clear:hover { text-decoration: underline; }
+      /* Pinned-items chips bar under the meta row */
+      .pinned-bar {
+        display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+        padding: 7px 0 2px; font-size: 12px;
+      }
+      .pinned-bar-label { color: var(--muted); font-weight: 600; margin-right: 2px; }
+      .pinned-chip {
+        display: inline-flex; align-items: center; gap: 5px;
+        background: var(--panel-2); border: 1px solid var(--accent);
+        color: var(--text); border-radius: 12px; padding: 2px 6px 2px 10px;
+        font-weight: 500;
+      }
+      .pinned-chip-x {
+        border: none; background: transparent; color: var(--muted);
+        cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px;
+      }
+      .pinned-chip-x:hover { color: var(--danger); }
+      .pinned-clear-all {
+        border: none; background: transparent; color: var(--accent);
+        cursor: pointer; font-size: 12px; font-weight: 600; padding: 2px 4px;
+      }
+      .pinned-clear-all:hover { text-decoration: underline; }
 
       .btn {
         padding: 8px 14px;
@@ -1309,6 +1351,7 @@
             </span>
             <span id="syncInfo" style="font-size:11px;color:var(--muted);">↺ Synced 29s ago</span>
           </div>
+          <div id="pinnedItemsBar" class="pinned-bar" style="display:none"></div>
           <div id="shipmentBar" style="display:none"></div>
           <div id="invoiceTabBar" style="display:none" data-rendered-tab=""></div>
           <div id="tableContainer"><div class="table-wrap"><table style="min-width:810px"><thead><tr><th style="width:88px;" data-col="ORDER #"><span class="th-label">ORDER #</span><div class="col-resizer" data-resizer="ORDER #"></div></th><th style="width:88px;" data-col="DATE"><span class="th-label">DATE</span><div class="col-resizer" data-resizer="DATE"></div></th><th style="width:121px;" class="col-itemcode" data-col="ITEMCODE"><span class="th-label">ITEMCODE</span><div class="col-resizer" data-resizer="ITEMCODE"></div></th><th style="width:121px;" data-col="ITEM DESCRIPTION"><span class="th-label">ITEM DESCRIPTION<span title="Hidden from non-admin users" style="color:var(--danger);font-size:8px;vertical-align:middle;margin-left:4px;opacity:0.85;">●</span></span><div class="col-resizer" data-resizer="ITEM DESCRIPTION"></div></th><th style="width:88px;" data-col="SIZE"><span class="th-label">SIZE</span><div class="col-resizer" data-resizer="SIZE"></div></th><th style="width:88px;" data-col="QTY"><span class="th-label">QTY</span><div class="col-resizer" data-resizer="QTY"></div></th><th style="width:88px;" data-col="UNIT"><span class="th-label">UNIT</span><div class="col-resizer" data-resizer="UNIT"></div></th><th style="width:111px;text-align:center;" data-col="SP CODE"><span class="th-label">SP CODE</span><div class="col-resizer" data-resizer="SP CODE"></div></th><th style="width:180.625px;text-align:center;" data-col="SHIPMENT"><span class="th-label">SHIPMENT</span><div class="col-resizer" data-resizer="SHIPMENT"></div></th><th style="width:88px;text-align:center;" data-col="STATUS"><span class="th-label">STATUS</span><div class="col-resizer" data-resizer="STATUS"></div></th><th style="width:88px;text-align:center;" data-col="DATE RECEIVED"><span class="th-label">DATE RECEIVED</span><div class="col-resizer" data-resizer="DATE RECEIVED"></div></th><th style="width:88px;" data-col="REMARKS"><span class="th-label">REMARKS</span><div class="col-resizer" data-resizer="REMARKS"></div></th><th class="actions-col" style="width:90px">Actions</th></tr></thead><tbody><tr><td title="202627">202627</td><td title="2026-05-22">2026-05-22</td><td class="col-itemcode" title="A4 BPBB">A4 BPBB</td><td title="Bookpaper BB Waterbase Glsn A4 Size">Bookpaper BB Waterbase Glsn A4 Size</td><td title="A4">A4</td><td title="864000">864000</td><td title="sheets">sheets</td><td style="text-align:center;" title="FH"><div class="remarks-cell-content">FH</div></td><td style="text-align:center;" title=""></td><td style="text-align:center;" class="status-cell" data-row="919" data-field="STATUS" title="Click to change status"></td><td style="text-align:center;" title=""><div class="remarks-cell-content"></div></td><td title="advanced order"><div class="remarks-cell-content">advanced order</div></td><td class="actions"><button class="btn btn-icon" data-edit="919" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="btn btn-icon btn-danger" data-delete="919" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path></svg></button></td></tr><tr><td title="202627">202627</td><td title="2026-05-22">2026-05-22</td><td class="col-itemcode" title="BPBB WB">BPBB WB</td><td title="Book Paper BB Waterbase Glsn 60gsm">Book Paper BB Waterbase Glsn 60gsm</td><td title="42x1200">42x1200</td><td title="60">60</td><td title="rolls">rolls</td><td style="text-align:center;" title="FH"><div class="remarks-cell-content">FH</div></td><td style="text-align:center;" title=""></td><td style="text-align:center;" class="status-cell" data-row="920" data-field="STATUS" title="Click to change status"></td><td style="text-align:center;" title=""><div class="remarks-cell-content"></div></td><td title="advanced order"><div class="remarks-cell-content">advanced order</div></td><td class="actions"><button class="btn btn-icon" data-edit="920" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="btn btn-icon btn-danger" data-delete="920" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path></svg></button></td></tr><tr><td title="202627">202627</td><td title="2026-05-22">2026-05-22</td><td class="col-itemcode" title="BPBB HM">BPBB HM</td><td title="Book Paper BB Glsn Hotmelt 60gsm">Book Paper BB Glsn Hotmelt 60gsm</td><td title="42x1200">42x1200</td><td title="20">20</td><td title="rolls">rolls</td><td style="text-align:center;" title="FH"><div class="remarks-cell-content">FH</div></td><td style="text-align:center;" title=""></td><td style="text-align:center;" class="status-cell" data-row="921" data-field="STATUS" title="Click to change status"></td><td style="text-align:center;" title=""><div class="remarks-cell-content"></div></td><td title="advanced order"><div class="remarks-cell-content">advanced order</div></td><td class="actions"><button class="btn btn-icon" data-edit="921" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="btn btn-icon btn-danger" data-delete="921" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path></svg></button></td></tr><tr><td title="202627">202627</td><td title="2026-05-22">2026-05-22</td><td class="col-itemcode" title="SPBB-HM">SPBB-HM</td><td title="Satin BB Glassine Hotmelt">Satin BB Glassine Hotmelt</td><td title="42X1200">42X1200</td><td title="150">150</td><td title="rolls">rolls</td><td style="text-align:center;" title="FH"><div class="remarks-cell-content">FH</div></td><td style="text-align:center;" title=""></td><td style="text-align:center;" class="status-cell" data-row="922" data-field="STATUS" title="Click to change status"></td><td style="text-align:center;" title=""><div class="remarks-cell-content"></div></td><td title="advanced order"><div class="remarks-cell-content">advanced order</div></td><td class="actions"><button class="btn btn-icon" data-edit="922" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="btn btn-icon btn-danger" data-delete="922" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path></svg></button></td></tr><tr><td title="202626">202626</td><td title="2026-05-21">2026-05-21</td><td class="col-itemcode" title="3M 1170C ECF CLEAR">3M 1170C ECF CLEAR</td><td title="3M 1170C ECF Clear">3M 1170C ECF Clear</td><td title="48x50">48x50</td><td title="45">45</td><td title="rolls">rolls</td><td style="text-align:center;" title="3M US"><div class="remarks-cell-content">3M US</div></td><td style="text-align:center;" title=""></td><td style="text-align:center;" class="status-cell" data-row="923" data-field="STATUS" title="Click to change status"></td><td style="text-align:center;" title=""><div class="remarks-cell-content"></div></td><td title=""><div class="remarks-cell-content"></div></td><td class="actions"><button class="btn btn-icon" data-edit="923" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="btn btn-icon btn-danger" data-delete="923" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path></svg></button></td></tr><tr><td title="202626">202626</td><td title="2026-05-21">2026-05-21</td><td class="col-itemcode" title="3M 1178C ECF BLACK">3M 1178C ECF BLACK</td><td title="3M 1178C ECF Black">3M 1178C ECF Black</td><td title="48X50">48X50</td><td title="10">10</td><td title="rolls">rolls</td><td style="text-align:center;" title="3M US"><div class="remarks-cell-content">3M US</div></td><td style="text-align:center;" title=""></td><td style="text-align:center;" class="status-cell" data-row="924" data-field="STATUS" title="Click to change status"></td><td style="text-align:center;" title=""><div class="remarks-cell-content"></div></td><td title=""><div class="remarks-cell-content"></div></td><td class="actions"><button class="btn btn-icon" data-edit="924" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="btn btn-icon btn-danger" data-delete="924" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path></svg></button></td></tr><tr><td title="202625">202625</td><td title="2026-05-18">2026-05-18</td><td class="col-itemcode" title="PG75 #110 WBK">PG75 #110 WBK</td><td title="PG75/110 WB Kraft">PG75/110 WB Kraft</td><td title="42X1000">42X1000</td><td title="400">400</td><td title="rolls">rolls</td><td style="text-align:center;" title="FH"><div class="remarks-cell-content">FH</div></td><td style="text-align:center;" title=""></td><td style="text-align:center;" class="status-cell" data-row="917" data-field="STATUS" title="Click to change status"></td><td style="text-align:center;" title=""><div class="remarks-cell-content"></div></td><td title="0.33"><div class="remarks-cell-content">0.33</div></td><td class="actions"><button class="btn btn-icon" data-edit="917" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="btn btn-icon btn-danger" data-delete="917" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path></svg></button></td></tr><tr><td title="202624">202624</td><td title="2026-05-13">2026-05-13</td><td class="col-itemcode" title="RIBBON (KINGLABEL)">RIBBON (KINGLABEL)</td><td title=""></td><td title="N/A">N/A</td><td title=""></td><td title=""></td><td style="text-align:center;" title="KL"><div class="remarks-cell-content">KL</div></td><td style="text-align:center;" title=""></td><td style="text-align:center;" class="status-cell" data-row="918" data-field="STATUS" title="Click to change status"></td><td style="text-align:center;" title=""><div class="remarks-cell-content"></div></td><td title=""><div class="remarks-cell-content"></div></td><td class="actions"><button class="btn btn-icon" data-edit="918" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="btn btn-icon btn-danger" data-delete="918" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path></svg></button></td></tr><tr><td title="202623">202623</td><td title="2026-05-13">2026-05-13</td><td class="col-itemcode" title="VC25">VC25</td><td title="Vinyl Clear #25 YB">Vinyl Clear #25 YB</td><td title="42X500">42X500</td><td title="10">10</td><td title="rolls">rolls</td><td style="text-align:center;" title="FH"><div class="remarks-cell-content">FH</div></td><td style="text-align:center;" title=""></td><td style="text-align:center;" class="status-cell" data-row="913" data-field="STATUS" title="Click to change status"></td><td style="text-align:center;" title=""><div class="remarks-cell-content"></div></td><td title=""><div class="remarks-cell-content"></div></td><td class="actions"><button class="btn btn-icon" data-edit="913" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="btn btn-icon btn-danger" data-delete="913" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path></svg></button></td></tr><tr><td title="202623">202623</td><td title="2026-05-13">2026-05-13</td><td class="col-itemcode" title="PP CLEAR WBG HM">PP CLEAR WBG HM</td><td title="PP Clear White Back Glassine HM">PP Clear White Back Glassine HM</td><td title="42X1200">42X1200</td><td title="20">20</td><td title="rolls">rolls</td><td style="text-align:center;" title="FH"><div class="remarks-cell-content">FH</div></td><td style="text-align:center;" title=""></td><td style="text-align:center;" class="status-cell" data-row="914" data-field="STATUS" title="Click to change status"></td><td style="text-align:center;" title=""><div class="remarks-cell-content"></div></td><td title=""><div class="remarks-cell-content"></div></td><td class="actions"><button class="btn btn-icon" data-edit="914" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="btn btn-icon btn-danger" data-delete="914" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path></svg></button></td></tr><tr><td title="202623">202623</td><td title="2026-05-13">2026-05-13</td><td class="col-itemcode" title="PAMBALOT">PAMBALOT</td><td title="PAMBALOT">PAMBALOT</td><td title="42">42</td><td title="2">2</td><td title="rolls">rolls</td><td style="text-align:center;" title="FH"><div class="remarks-cell-content">FH</div></td><td style="text-align:center;" title=""></td><td style="text-align:center;" class="status-cell" data-row="915" data-field="STATUS" title="Click to change status"></td><td style="text-align:center;" title=""><div class="remarks-cell-content"></div></td><td title=""><div class="remarks-cell-content"></div></td><td class="actions"><button class="btn btn-icon" data-edit="915" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="btn btn-icon btn-danger" data-delete="915" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path></svg></button></td></tr><tr><td title="202623">202623</td><td title="2026-05-13">2026-05-13</td><td class="col-itemcode" title="MOUSE TRAP">MOUSE TRAP</td><td title="MOUSE TRAP">MOUSE TRAP</td><td title="N/A">N/A</td><td title="2">2</td><td title="BOXES">BOXES</td><td style="text-align:center;" title="FH"><div class="remarks-cell-content">FH</div></td><td style="text-align:center;" title=""></td><td style="text-align:center;" class="status-cell" data-row="916" data-field="STATUS" title="Click to change status"></td><td style="text-align:center;" title=""><div class="remarks-cell-content"></div></td><td title=""><div class="remarks-cell-content"></div></td><td class="actions"><button class="btn btn-icon" data-edit="916" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="btn btn-icon btn-danger" data-delete="916" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path></svg></button></td></tr><tr><td title="202622">202622</td><td title="2026-05-13">2026-05-13</td><td class="col-itemcode" title="983-32-10 WHITE">983-32-10 WHITE</td><td title="CONSPICUITY WHITE">CONSPICUITY WHITE</td><td title="2x50yds">2x50yds</td><td title="100">100</td><td title="rolls">rolls</td><td style="text-align:center;" title="3M US"><div class="remarks-cell-content">3M US</div></td><td style="text-align:center;" title=""></td><td style="text-align:center;" class="status-cell" data-row="911" data-field="STATUS" title="Click to change status"><span class="status-dot s-confirmed" title="Confirmed"></span></td><td style="text-align:center;" title=""><div class="remarks-cell-content"></div></td><td title=""><div class="remarks-cell-content"></div></td><td class="actions"><button class="btn btn-icon" data-edit="911" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="btn btn-icon btn-danger" data-delete="911" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path></svg></button></td></tr><tr><td title="202622">202622</td><td title="2026-05-13">2026-05-13</td><td class="col-itemcode" title="983-32-RED">983-32-RED</td><td title="CONSPICUITY RED">CONSPICUITY RED</td><td title="2x50yds">2x50yds</td><td title="102">102</td><td title="rolls">rolls</td><td style="text-align:center;" title="3M US"><div class="remarks-cell-content">3M US</div></td><td style="text-align:center;" title=""></td><td style="text-align:center;" class="status-cell" data-row="912" data-field="STATUS" title="Click to change status"><span class="status-dot s-confirmed" title="Confirmed"></span></td><td style="text-align:center;" title=""><div class="remarks-cell-content"></div></td><td title=""><div class="remarks-cell-content"></div></td><td class="actions"><button class="btn btn-icon" data-edit="912" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="btn btn-icon btn-danger" data-delete="912" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path></svg></button></td></tr><tr><td title="202621">202621</td><td title="2026-04-24">2026-04-24</td><td class="col-itemcode" title="SPYB 36X24">SPYB 36X24</td><td title="Satin YB 36x24">Satin YB 36x24</td><td title="36 x 24">36 x 24</td><td title="100000">100000</td><td title="rolls">rolls</td><td style="text-align:center;" title="FH"><div class="remarks-cell-content">FH</div></td><td style="text-align:center;" title=""></td><td style="text-align:center;" class="status-cell" data-row="907" data-field="STATUS" title="Click to change status"><span class="status-dot s-confirmed" title="Confirmed"></span></td><td style="text-align:center;" title=""><div class="remarks-cell-content"></div></td><td title=""><div class="remarks-cell-content"></div></td><td class="actions"><button class="btn btn-icon" data-edit="907" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="btn btn-icon btn-danger" data-delete="907" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path></svg></button></td></tr><tr><td title="202621">202621</td><td title="2026-04-24">2026-04-24</td><td class="col-itemcode" title="HGYB-24X36">HGYB-24X36</td><td title="High Gloss YB">High Gloss YB</td><td title="24X36">24X36</td><td title="2">2</td><td title="containers">containers</td><td style="text-align:center;" title="FH"><div class="remarks-cell-content">FH</div></td><td style="text-align:center;" title=""></td><td style="text-align:center;" class="status-cell" data-row="908" data-field="STATUS" title="Click to change status"><span class="status-dot s-confirmed" title="Confirmed"></span></td><td style="text-align:center;" title=""><div class="remarks-cell-content"></div></td><td title=""><div class="remarks-cell-content"></div></td><td class="actions"><button class="btn btn-icon" data-edit="908" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="btn btn-icon btn-danger" data-delete="908" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path></svg></button></td></tr><tr><td title="202620">202620</td><td title="2026-04-24">2026-04-24</td><td class="col-itemcode" title="HOL-20S">HOL-20S</td><td title="HOLOGRAM #20 PLAIN SILVER">HOLOGRAM #20 PLAIN SILVER</td><td title="24x500m">24x500m</td><td title="6">6</td><td title="rolls">rolls</td><td style="text-align:center;" title="JAFF"><div class="remarks-cell-content">JAFF</div></td><td style="text-align:center;" title=""></td><td style="text-align:center;" class="status-cell" data-row="906" data-field="STATUS" title="Click to change status"><span class="status-dot s-confirmed" title="Confirmed"></span></td><td style="text-align:center;" title=""><div class="remarks-cell-content"></div></td><td title="as of 05/23/26 10 days ang production"><div class="remarks-cell-content">as of 05/23/26 10 days ang production</div></td><td class="actions"><button class="btn btn-icon" data-edit="906" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="btn btn-icon btn-danger" data-delete="906" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path></svg></button></td></tr><tr><td title="202619">202619</td><td title="2026-04-24">2026-04-24</td><td class="col-itemcode" title="TM 7200 RED">TM 7200 RED</td><td title="TM Red">TM Red</td><td title="48X50">48X50</td><td title="5">5</td><td title="rolls">rolls</td><td style="text-align:center;" title="TM"><div class="remarks-cell-content">TM</div></td><td style="text-align:center;" title=""></td><td style="text-align:center;" class="status-cell" data-row="903" data-field="STATUS" title="Click to change status"><span class="status-dot s-confirmed" title="Confirmed"></span></td><td style="text-align:center;" title=""><div class="remarks-cell-content"></div></td><td title="JUNE PA DATING"><div class="remarks-cell-content">JUNE PA DATING</div></td><td class="actions"><button class="btn btn-icon" data-edit="903" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="btn btn-icon btn-danger" data-delete="903" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path></svg></button></td></tr><tr><td title="202619">202619</td><td title="2026-04-24">2026-04-24</td><td class="col-itemcode" title="TM 7200 BLUE">TM 7200 BLUE</td><td title="TM Blue">TM Blue</td><td title="48X50">48X50</td><td title="2">2</td><td title="rolls">rolls</td><td style="text-align:center;" title="TM"><div class="remarks-cell-content">TM</div></td><td style="text-align:center;" title=""></td><td style="text-align:center;" class="status-cell" data-row="904" data-field="STATUS" title="Click to change status"><span class="status-dot s-confirmed" title="Confirmed"></span></td><td style="text-align:center;" title=""><div class="remarks-cell-content"></div></td><td title="JUNE PA DATING"><div class="remarks-cell-content">JUNE PA DATING</div></td><td class="actions"><button class="btn btn-icon" data-edit="904" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="btn btn-icon btn-danger" data-delete="904" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path></svg></button></td></tr><tr><td title="202619">202619</td><td title="2026-04-24">2026-04-24</td><td class="col-itemcode" title="TM 7200 YEL">TM 7200 YEL</td><td title="TM Yellow">TM Yellow</td><td title="48X50">48X50</td><td title="1">1</td><td title="rolls">rolls</td><td style="text-align:center;" title="TM"><div class="remarks-cell-content">TM</div></td><td style="text-align:center;" title=""></td><td style="text-align:center;" class="status-cell" data-row="905" data-field="STATUS" title="Click to change status"><span class="status-dot s-confirmed" title="Confirmed"></span></td><td style="text-align:center;" title=""><div class="remarks-cell-content"></div></td><td title="JUNE PA DATING"><div class="remarks-cell-content">JUNE PA DATING</div></td><td class="actions"><button class="btn btn-icon" data-edit="905" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="btn btn-icon btn-danger" data-delete="905" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path></svg></button></td></tr><tr><td title="202619">202619</td><td title="2026-04-24">2026-04-24</td><td class="col-itemcode" title="TM 7200 BLACK">TM 7200 BLACK</td><td title="TM Reflective Black">TM Reflective Black</td><td title="24X50">24X50</td><td title="20">20</td><td title="rolls">rolls</td><td style="text-align:center;" title="TM"><div class="remarks-cell-content">TM</div></td><td style="text-align:center;" title=""></td><td style="text-align:center;" class="status-cell" data-row="910" data-field="STATUS" title="Click to change status"><span class="status-dot s-confirmed" title="Confirmed"></span></td><td style="text-align:center;" title=""><div class="remarks-cell-content"></div></td><td title="JUNE PA DATING"><div class="remarks-cell-content">JUNE PA DATING</div></td><td class="actions"><button class="btn btn-icon" data-edit="910" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="btn btn-icon btn-danger" data-delete="910" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path></svg></button></td></tr><tr><td title="202618">202618</td><td title="2026-04-24">2026-04-24</td><td class="col-itemcode" title="HSF GOLD #106 204">HSF GOLD #106 204</td><td title="HSF GOLD #106 204">HSF GOLD #106 204</td><td title="204mm x 1500m">204mm x 1500m</td><td title="100">100</td><td title="rolls">rolls</td><td style="text-align:center;" title="HX"><div class="remarks-cell-content">HX</div></td><td style="text-align:center;" title=""></td><td style="text-align:center;" class="status-cell" data-row="909" data-field="STATUS" title="Click to change status"><span class="status-dot s-confirmed" title="Confirmed"></span></td><td style="text-align:center;" title=""><div class="remarks-cell-content"></div></td><td title="Confirmed, May 8 matatapos
@@ -2984,6 +3027,7 @@
       // (not token-boundary) so "1178" matches "1178-ECF BLK 48X50"; multi-term AND so
       // "satin 48" finds a Satin row of size 48 regardless of which columns hold each term.
       const terms = q ? q.split(/\s+/).filter(Boolean) : [];
+      const pinned = m.pinnedItems || [];
 
       function rowHasTerm(row, term) {
         return m.headers.some(function (h) {
@@ -2994,8 +3038,20 @@
       }
 
       let result = m.rows.filter(function (row) {
-        for (let ti = 0; ti < terms.length; ti++) {
-          if (!rowHasTerm(row, terms[ti])) return false;
+        if (pinned.length) {
+          // Pinned multi-select takes precedence: show rows matching ANY pinned item
+          // (exact value in the column it was picked from). Free-text is then used only
+          // to find more items to pin, so the table stays on the pinned selection.
+          const pinHit = pinned.some(function (p) {
+            const cv = row[p.col];
+            return cv !== null && cv !== undefined &&
+                   String(cv).trim().toLowerCase() === p.val.toLowerCase();
+          });
+          if (!pinHit) return false;
+        } else {
+          for (let ti = 0; ti < terms.length; ti++) {
+            if (!rowHasTerm(row, terms[ti])) return false;
+          }
         }
         for (const h in colFilters) {
           const f = colFilters[h];
@@ -3086,7 +3142,38 @@
       renderTable();
       renderShipmentBar();
       renderInvoiceTabBar();
+      renderPinnedItemsBar();
       syncLegendActive();
+    }
+
+    // Renders the removable chips for pinned (multi-selected) items under the meta row.
+    // Pinned items are chosen via the search autosuggest checkboxes and OR-filter the table.
+    function renderPinnedItemsBar() {
+      const bar = document.getElementById('pinnedItemsBar');
+      if (!bar) return;
+      const m = activeMod();
+      const pinned = (m && m.pinnedItems) || [];
+      if (!pinned.length) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
+      let html = '<span class="pinned-bar-label">Showing only:</span>';
+      pinned.forEach(function (p, i) {
+        html += '<span class="pinned-chip">' + escapeHtml(p.val)
+          + '<button class="pinned-chip-x" data-i="' + i + '" title="Remove">&times;</button></span>';
+      });
+      html += '<button class="pinned-clear-all" title="Clear all pinned items">Clear all</button>';
+      bar.innerHTML = html;
+      bar.style.display = 'flex';
+      bar.querySelectorAll('.pinned-chip-x').forEach(function (b) {
+        b.addEventListener('click', function () {
+          const idx = parseInt(b.dataset.i, 10);
+          if (m.pinnedItems && idx >= 0) m.pinnedItems.splice(idx, 1);
+          applyFiltersAndRender();
+        });
+      });
+      const clr = bar.querySelector('.pinned-clear-all');
+      if (clr) clr.addEventListener('click', function () {
+        m.pinnedItems = [];
+        applyFiltersAndRender();
+      });
     }
 
     // Wires click listeners for edit/delete/sign/status buttons in the table.
@@ -3673,22 +3760,43 @@
         return results.slice(0, 10);
       }
 
+      function isPinned(item) {
+        const list = activeMod().pinnedItems || [];
+        return list.some(function (p) {
+          return p.col === item.col && p.val.toLowerCase() === item.val.toLowerCase();
+        });
+      }
+
       function renderAC() {
         if (acItems.length === 0) { ac.style.display = 'none'; return; }
-        let html = '';
+        const pinnedCount = (activeMod().pinnedItems || []).length;
+        let html = '<div class="global-ac-head"><span>Check items to display</span>'
+          + (pinnedCount ? '<span class="global-ac-clear" data-acclear="1">Clear (' + pinnedCount + ')</span>' : '')
+          + '</div>';
         acItems.forEach(function (item, i) {
-          const cls = i === activeIdx ? ' ac-active' : '';
-          html += '<div class="global-ac-item' + cls + '" data-i="' + i + '">'
-            + '<div class="global-ac-col">' + escapeHtml(item.col) + '</div>'
-            + '<div class="global-ac-val">' + escapeHtml(item.val) + '</div>'
+          const active = i === activeIdx ? ' ac-active' : '';
+          const pinned = isPinned(item);
+          html += '<div class="global-ac-item' + active + (pinned ? ' ac-pinned' : '') + '" data-i="' + i + '">'
+            + '<span class="global-ac-check">' + (pinned ? '&#10003;' : '') + '</span>'
+            + '<span class="global-ac-text">'
+            +   '<span class="global-ac-col">' + escapeHtml(item.col) + '</span>'
+            +   '<span class="global-ac-val">' + escapeHtml(item.val) + '</span>'
+            + '</span>'
             + '</div>';
         });
         ac.innerHTML = html;
         ac.style.display = 'block';
+        const clr = ac.querySelector('[data-acclear]');
+        if (clr) clr.addEventListener('mousedown', function (e) {
+          e.preventDefault();
+          activeMod().pinnedItems = [];
+          renderAC();
+          applyFiltersAndRender();
+        });
         ac.querySelectorAll('.global-ac-item').forEach(function (el) {
           el.addEventListener('mousedown', function (e) {
-            e.preventDefault();
-            pickAC(parseInt(el.dataset.i, 10));
+            e.preventDefault(); // keep focus in the input so the dropdown stays open
+            togglePin(parseInt(el.dataset.i, 10));
           });
           el.addEventListener('mouseenter', function () {
             activeIdx = parseInt(el.dataset.i, 10);
@@ -3703,14 +3811,19 @@
         });
       }
 
-      function pickAC(idx) {
+      // Toggle an item in/out of the module's pinned-display set, then refresh the
+      // dropdown checkmarks and the table (which now shows only the pinned items).
+      function togglePin(idx) {
         const item = acItems[idx];
         if (!item) return;
-        inp3.value = item.val;
-        activeMod().globalQuery = item.val;
-        inp3.closest('.search-box').classList.add('has-value');
-        ac.style.display = 'none';
-        acItems = []; activeIdx = -1;
+        const m = activeMod();
+        if (!m.pinnedItems) m.pinnedItems = [];
+        const at = m.pinnedItems.findIndex(function (p) {
+          return p.col === item.col && p.val.toLowerCase() === item.val.toLowerCase();
+        });
+        if (at === -1) m.pinnedItems.push({ col: item.col, val: item.val });
+        else m.pinnedItems.splice(at, 1);
+        renderAC();
         applyFiltersAndRender();
       }
 
@@ -3748,7 +3861,7 @@
         } else if (e.key === 'Enter') {
           if (activeIdx >= 0 && acItems.length > 0) {
             e.preventDefault();
-            pickAC(activeIdx);
+            togglePin(activeIdx); // check/uncheck the highlighted item
           } else {
             hideAC();
           }
