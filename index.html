@@ -334,13 +334,18 @@
       .potag-listhead { display: flex; align-items: center; justify-content: space-between;
         font-size: 12px; color: var(--muted); margin: 14px 0 6px; }
       .potag-all { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
-      .potag-list { max-height: 260px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; }
-      .potag-row { display: grid; grid-template-columns: 22px 1fr auto auto; align-items: center;
+      .potag-hint { font-size: 11px; color: var(--muted); margin: 0 0 6px; }
+      .potag-list { max-height: 280px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; }
+      .potag-row { display: grid; grid-template-columns: 22px 1fr 116px auto; align-items: center;
         gap: 10px; padding: 7px 10px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13px; }
       .potag-row:last-child { border-bottom: none; }
       .potag-row:hover { background: var(--row-hover); }
       .potag-ship { font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .potag-qty { color: var(--muted); font-variant-numeric: tabular-nums; }
+      .potag-qty { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+      .potag-qtyin { width: 100%; padding: 4px 7px; background: var(--panel-2); color: var(--text);
+        border: 1px solid var(--border); border-radius: 5px; font-size: 12px; font-family: inherit;
+        text-align: right; outline: none; box-sizing: border-box; }
+      .potag-qtyin:focus { border-color: var(--accent); }
       .potag-cur { color: var(--accent); font-size: 12px; font-weight: 600; }
       .potag-untag { color: var(--muted); font-weight: 400; font-style: italic; }
       thead th.spacer-col { cursor: default; }
@@ -5824,10 +5829,13 @@
         showToast('Add a "PO REF" column to the Incoming Shipment sheet first.', 'error');
         return;
       }
-      var itemHdr = _itemCodeHdr(incMod.headers);
-      var shipHdr = _incShipmentHdr(incMod.headers);
-      var qtyHdr  = _findHdr(incMod.headers, ['QUANTITY', 'QTY']) || _incQtyRcvdHdr(incMod.headers);
-      var contHdr = _findHdr(incMod.headers, ['CONTAINERNO', 'CONTAINERNUMBER', 'CONTAINERNUM', 'CONTAINER']);
+      var itemHdr    = _itemCodeHdr(incMod.headers);
+      var shipHdr    = _incShipmentHdr(incMod.headers);
+      var shippedHdr = _findHdr(incMod.headers, ['QUANTITY', 'QTY']);
+      var qtyRcvdHdr = _incQtyRcvdHdr(incMod.headers);
+      var contHdr    = _findHdr(incMod.headers, ['CONTAINERNO', 'CONTAINERNUMBER', 'CONTAINERNUM', 'CONTAINER']);
+      // The PO delivery rollup sums the QTY RECEIVED column, so we let the user set it here.
+      var hasRcvd    = !!qtyRcvdHdr;
 
       var itemRaw   = itemHdr ? String(incRow[itemHdr] || '').trim() : '';
       var itemKey   = _itemMatchKey(itemRaw);
@@ -5850,14 +5858,19 @@
         var isClicked = r.__rowIndex === incRow.__rowIndex;
         var ship = shipHdr ? String(r[shipHdr] || '') : '';
         var cont = contHdr ? String(r[contHdr] || '') : '';
-        var qty  = qtyHdr  ? String(r[qtyHdr]  || '') : '';
         var po   = String(r[poRefHdr] || '').trim();
-        return '<label class="potag-row">'
+        var existingRcvd = qtyRcvdHdr ? String(r[qtyRcvdHdr] || '').trim() : '';
+        var shipped      = shippedHdr ? String(r[shippedHdr] || '').trim() : '';
+        var defaultRcvd  = existingRcvd || shipped; // assume full receipt unless changed
+        var qtyCell = hasRcvd
+          ? '<input type="text" class="potag-qtyin" inputmode="numeric" data-ri="' + r.__rowIndex + '" value="' + escapeHtml(defaultRcvd) + '" title="Quantity received">'
+          : '<span class="potag-qty">' + escapeHtml(shipped) + '</span>';
+        return '<div class="potag-row" data-ri="' + r.__rowIndex + '">'
           + '<input type="checkbox" class="potag-cb" data-ri="' + r.__rowIndex + '"' + (isClicked ? ' checked' : '') + '>'
           + '<span class="potag-ship">' + (escapeHtml(ship) || '&mdash;') + (cont ? ' &middot; C' + escapeHtml(cont) : '') + '</span>'
-          + '<span class="potag-qty">' + escapeHtml(qty) + '</span>'
+          + qtyCell
           + '<span class="potag-cur">' + (po ? 'PO ' + escapeHtml(po) : '<span class="potag-untag">untagged</span>') + '</span>'
-          + '</label>';
+          + '</div>';
       }).join('');
 
       var multi = candidates.length > 1;
@@ -5872,6 +5885,7 @@
         + '<div class="potag-listhead"><span>Apply to ' + candidates.length + ' shipment row' + (multi ? 's' : '') + ' of this item</span>'
         + (multi ? '<label class="potag-all"><input type="checkbox" id="potagAll" checked> Select all</label>' : '')
         + '</div>'
+        + (hasRcvd ? '<div class="potag-hint">Set the quantity received for each row — it rolls up into the PO’s received total.</div>' : '')
         + '<div class="potag-list">' + listHtml + '</div>'
         + '</div>'
         + '<div class="modal-footer">'
@@ -5891,40 +5905,65 @@
         $('modalMount').querySelectorAll('.potag-cb').forEach(function (cb) { cb.checked = allCb.checked; });
       });
 
+      // Clicking anywhere on a row toggles its checkbox (except the qty input / checkbox itself).
+      $('modalMount').querySelectorAll('.potag-row').forEach(function (rowEl) {
+        rowEl.addEventListener('click', function (e) {
+          if (e.target.classList.contains('potag-qtyin') || e.target.classList.contains('potag-cb')) return;
+          var cb = rowEl.querySelector('.potag-cb');
+          if (cb) cb.checked = !cb.checked;
+        });
+      });
+      // Typing a quantity auto-checks that row so it isn't accidentally left out.
+      $('modalMount').querySelectorAll('.potag-qtyin').forEach(function (inp) {
+        inp.addEventListener('click', function (e) { e.stopPropagation(); });
+        inp.addEventListener('input', function () {
+          var cb = $('modalMount').querySelector('.potag-cb[data-ri="' + inp.dataset.ri + '"]');
+          if (cb && inp.value.trim()) cb.checked = true;
+        });
+      });
+
       $('potagApply').addEventListener('click', function () {
         var poVal = String($('potagInput').value || '').trim();
-        var checked = Array.prototype.slice.call($('modalMount').querySelectorAll('.potag-cb:checked'))
-          .map(function (cb) { return parseInt(cb.dataset.ri, 10); });
-        if (!checked.length) { showToast('Select at least one shipment row.', 'error'); return; }
+        var updates = [];
+        $('modalMount').querySelectorAll('.potag-cb:checked').forEach(function (cb) {
+          var ri = parseInt(cb.dataset.ri, 10);
+          var qin = $('modalMount').querySelector('.potag-qtyin[data-ri="' + ri + '"]');
+          updates.push({ ri: ri, qty: qin ? String(qin.value).trim() : null });
+        });
+        if (!updates.length) { showToast('Select at least one shipment row.', 'error'); return; }
         closeModal();
-        _bulkTagPoRef(checked, poRefHdr, poVal);
+        _bulkTagPoRef(updates, poRefHdr, qtyRcvdHdr, poVal);
       });
     }
 
     // Writes the chosen PO Number into the PO REF column of every selected incoming row.
     // Optimistic in-memory update; silentRefresh reconciles with the sheet afterward.
-    function _bulkTagPoRef(rowIndices, poRefHdr, poNumber) {
+    function _bulkTagPoRef(updates, poRefHdr, qtyRcvdHdr, poNumber) {
       var moduleId = 'incoming';
       var m = STATE.modules.incoming;
       var tab = tabFor('incoming');
 
       var targets = [];
-      rowIndices.forEach(function (ri) {
-        var row = m.rows.find(function (r) { return r.__rowIndex === ri; });
-        if (row) targets.push(row);
+      updates.forEach(function (u) {
+        var row = m.rows.find(function (r) { return r.__rowIndex === u.ri; });
+        if (row) targets.push({ row: row, qty: u.qty });
       });
       if (!targets.length) return;
 
-      targets.forEach(function (row) { row[poRefHdr] = poNumber; });
+      targets.forEach(function (t) {
+        t.row[poRefHdr] = poNumber;
+        if (qtyRcvdHdr && t.qty !== null && t.qty !== undefined && t.qty !== '') {
+          t.row[qtyRcvdHdr] = t.qty;
+        }
+      });
       saveCachedData(moduleId, m.headers, m.rows, m.sheetNameActual);
       if (STATE.activeModule === moduleId) applyFiltersAndRender();
 
       _fetchSeq++;
       var done = 0, failed = 0;
-      targets.forEach(function (row) {
-        var data = Object.assign({}, row);
-        data[poRefHdr] = poNumber;
-        gasRun('updateRow', { sheetName: tab, rowIndex: row.__rowIndex, data: data })
+      targets.forEach(function (t) {
+        var data = Object.assign({}, t.row);
+        gasRun('updateRow', { sheetName: tab, rowIndex: t.row.__rowIndex, data: data })
           .then(function (res) { if (!res || !res.success) failed++; })
           .catch(function () { failed++; })
           .then(function () {
