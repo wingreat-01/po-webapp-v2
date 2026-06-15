@@ -5548,6 +5548,17 @@
       return _findHdr(headers, ['ITEMCODE','ITEM','ITEMNO','ITEMNUM','PRODUCTCODE','SKUCODE','SKU','CODE']);
     }
 
+    // Normalizes an item code for matching that ignores word/token ORDER and separators,
+    // so "BPYB-A4" and "A4 BPYB" (same product, reversed words) are treated as equal.
+    function _itemMatchKey(s) {
+      return String(s || '')
+        .toUpperCase()
+        .split(/[^A-Z0-9]+/)
+        .filter(Boolean)
+        .sort()
+        .join('');
+    }
+
     function _deliveryAutoStatus(received, ordered) {
       if (received <= 0) return null;
       if (ordered > 0 && received > ordered) return 'Over Delivered';
@@ -5564,9 +5575,10 @@
       var poItemHdr  = _itemCodeHdr(poHdrs);
       var poId       = poIdHdr ? String(poRow[poIdHdr] || '').trim() : '';
       var qtyOrdered = poQtyHdr ? (parseFloat(String(poRow[poQtyHdr] || '').replace(/,/g, '')) || 0) : 0;
-      // Normalized item code from PO row — used for per-item matching
+      // Normalized item code from PO row — used for per-item matching.
+      // Order-insensitive so "BPYB-A4" links to incoming "A4 BPYB".
       var poItemRaw  = poItemHdr ? String(poRow[poItemHdr] || '').trim() : '';
-      var poItemCode = _hdrNorm(poItemRaw);
+      var poItemCode = _itemMatchKey(poItemRaw);
 
       var incPoRefHdr = _incPoRefHdr(incMod.headers);
       var incQtyHdr   = _incQtyRcvdHdr(incMod.headers);
@@ -5580,7 +5592,7 @@
           if (String(r[incPoRefHdr] || '').trim().toLowerCase() !== poId.toLowerCase()) return;
           // When both sheets have an item code column, only count rows whose item code matches this PO line item
           if (poItemCode && incItemHdr) {
-            var incItem = _hdrNorm(String(r[incItemHdr] || ''));
+            var incItem = _itemMatchKey(String(r[incItemHdr] || ''));
             if (incItem && incItem !== poItemCode) return;
           }
           deliveries.push(r);
