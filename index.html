@@ -330,6 +330,19 @@
       /* Item code acts as a link to the received-history popup (Purchased Order) */
       td.col-itemcode-link { cursor: pointer; }
       td.col-itemcode-link:hover { text-decoration: underline; background: rgba(47,129,247,0.18) !important; }
+      /* PO-tag popup (Incoming Shipment item-code click) */
+      .potag-listhead { display: flex; align-items: center; justify-content: space-between;
+        font-size: 12px; color: var(--muted); margin: 14px 0 6px; }
+      .potag-all { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+      .potag-list { max-height: 260px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; }
+      .potag-row { display: grid; grid-template-columns: 22px 1fr auto auto; align-items: center;
+        gap: 10px; padding: 7px 10px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13px; }
+      .potag-row:last-child { border-bottom: none; }
+      .potag-row:hover { background: var(--row-hover); }
+      .potag-ship { font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .potag-qty { color: var(--muted); font-variant-numeric: tabular-nums; }
+      .potag-cur { color: var(--accent); font-size: 12px; font-weight: 600; }
+      .potag-untag { color: var(--muted); font-weight: 400; font-style: italic; }
       thead th.spacer-col { cursor: default; }
       thead th.spacer-col:hover { background: var(--panel-2); }
       td.spacer { padding: 0; }
@@ -3220,6 +3233,14 @@
           if (row) showDeliveryHistoryModal(row);
         });
       });
+      $('tableContainer').querySelectorAll('td[data-potag]:not([data-wired])').forEach(function (td) {
+        td.dataset.wired = '1';
+        td.addEventListener('click', function () {
+          var idx = parseInt(td.dataset.potag, 10);
+          var row = activeMod().rows.find(function (r) { return r.__rowIndex === idx; });
+          if (row) showPoTagModal(row);
+        });
+      });
     }
 
     // Builds the HTML string for a single table row. Used by renderTable for both
@@ -3236,11 +3257,15 @@
             html += '<td' + colStyle(h, false) + '>' + colCellHtml(h, v) + '</td>';
           }
         } else if (hKey === 'ITEMCODE') {
-          // In Purchased Order, the item code is a quick link to the delivery-history popup.
-          var _isPO = STATE.activeModule === 'purchased' && row.__rowIndex >= 0;
-          var _icCls = ' class="col-itemcode' + (_isPO ? ' col-itemcode-link' : '') + '"';
-          var _icAttr = _isPO ? ' data-itemhist="' + row.__rowIndex + '"' : '';
-          var _icTitle = _isPO ? 'View received history' : v;
+          // Item code is a quick action link: Purchased Order -> received history popup;
+          // Incoming Shipment -> tag PO number popup.
+          var _isPO  = STATE.activeModule === 'purchased' && row.__rowIndex >= 0;
+          var _isInc = STATE.activeModule === 'incoming'  && row.__rowIndex >= 0;
+          var _link  = _isPO || _isInc;
+          var _icCls = ' class="col-itemcode' + (_link ? ' col-itemcode-link' : '') + '"';
+          var _icAttr = _isPO ? ' data-itemhist="' + row.__rowIndex + '"'
+                      : _isInc ? ' data-potag="' + row.__rowIndex + '"' : '';
+          var _icTitle = _isPO ? 'View received history' : _isInc ? 'Tag PO number' : v;
           html += '<td' + colStyle(h, false) + _icCls + _icAttr + ' title="' + escapeHtml(_icTitle) + '">' + colCellHtml(h, v) + '</td>';
         } else {
           html += '<td' + colStyle(h, false) + ' title="' + escapeHtml(v) + '">' + colCellHtml(h, v) + '</td>';
@@ -5744,19 +5769,23 @@
       });
     }
 
-    function _injectPoRefSelector(row) {
+    // Unique PO numbers from the Purchased Order module, newest first.
+    function _collectPoNumbers() {
       var purchMod = STATE.modules.purchased;
-      if (!purchMod.loaded || !purchMod.rows.length) return;
-
+      if (!purchMod.loaded || !purchMod.rows.length) return [];
       var poIdHdr = _poOrderNoHdr(purchMod.headers);
-      if (!poIdHdr) return;
-
+      if (!poIdHdr) return [];
       var seen = {}, poNumbers = [];
       purchMod.rows.forEach(function (r) {
         var v = String(r[poIdHdr] || '').trim();
         if (v && !seen[v]) { seen[v] = true; poNumbers.push(v); }
       });
       poNumbers.sort(function (a, b) { return b.localeCompare(a, undefined, { numeric: true }); });
+      return poNumbers;
+    }
+
+    function _injectPoRefSelector(row) {
+      var poNumbers = _collectPoNumbers();
       if (!poNumbers.length) return;
 
       var poRefEl = null;
@@ -5783,6 +5812,135 @@
       });
 
       poRefEl.parentNode.replaceChild(sel, poRefEl);
+    }
+
+    // Quick-tag popup: click an Item Code in Incoming Shipment to set its PO Number.
+    // Lists every shipment row of the same item so one PO Number can be applied to
+    // several shipments at once.
+    function showPoTagModal(incRow) {
+      var incMod = STATE.modules.incoming;
+      var poRefHdr = _incPoRefHdr(incMod.headers);
+      if (!poRefHdr) {
+        showToast('Add a "PO REF" column to the Incoming Shipment sheet first.', 'error');
+        return;
+      }
+      var itemHdr = _itemCodeHdr(incMod.headers);
+      var shipHdr = _incShipmentHdr(incMod.headers);
+      var qtyHdr  = _findHdr(incMod.headers, ['QUANTITY', 'QTY']) || _incQtyRcvdHdr(incMod.headers);
+      var contHdr = _findHdr(incMod.headers, ['CONTAINERNO', 'CONTAINERNUMBER', 'CONTAINERNUM', 'CONTAINER']);
+
+      var itemRaw   = itemHdr ? String(incRow[itemHdr] || '').trim() : '';
+      var itemKey   = _itemMatchKey(itemRaw);
+      var currentPo = String(incRow[poRefHdr] || '').trim();
+
+      // Candidate rows: every saved incoming row with the same item code; fall back to this row.
+      var candidates = [];
+      if (itemKey && itemHdr) {
+        incMod.rows.forEach(function (r) {
+          if (r.__rowIndex < 0) return;
+          if (_itemMatchKey(String(r[itemHdr] || '')) === itemKey) candidates.push(r);
+        });
+      }
+      if (!candidates.length) candidates = [incRow];
+
+      var poNumbers = _collectPoNumbers();
+      var datalist = poNumbers.map(function (v) { return '<option value="' + escapeHtml(v) + '">'; }).join('');
+
+      var listHtml = candidates.map(function (r) {
+        var isClicked = r.__rowIndex === incRow.__rowIndex;
+        var ship = shipHdr ? String(r[shipHdr] || '') : '';
+        var cont = contHdr ? String(r[contHdr] || '') : '';
+        var qty  = qtyHdr  ? String(r[qtyHdr]  || '') : '';
+        var po   = String(r[poRefHdr] || '').trim();
+        return '<label class="potag-row">'
+          + '<input type="checkbox" class="potag-cb" data-ri="' + r.__rowIndex + '"' + (isClicked ? ' checked' : '') + '>'
+          + '<span class="potag-ship">' + (escapeHtml(ship) || '&mdash;') + (cont ? ' &middot; C' + escapeHtml(cont) : '') + '</span>'
+          + '<span class="potag-qty">' + escapeHtml(qty) + '</span>'
+          + '<span class="potag-cur">' + (po ? 'PO ' + escapeHtml(po) : '<span class="potag-untag">untagged</span>') + '</span>'
+          + '</label>';
+      }).join('');
+
+      var multi = candidates.length > 1;
+      var html = '<div class="modal-backdrop" id="modalBackdrop">'
+        + '<div class="modal" onclick="event.stopPropagation()" style="width:560px">'
+        + '<div class="modal-header"><h3>Tag PO Number' + (itemRaw ? ' &mdash; ' + escapeHtml(itemRaw) : '') + '</h3>'
+        + '<button class="modal-close" id="modalClose">&times;</button></div>'
+        + '<div class="modal-body">'
+        + '<div class="form-field"><label>PO Number</label>'
+        + '<input type="text" id="potagInput" list="potagList" value="' + escapeHtml(currentPo) + '" placeholder="Select or type a PO number" autocomplete="off">'
+        + '<datalist id="potagList">' + datalist + '</datalist></div>'
+        + '<div class="potag-listhead"><span>Apply to ' + candidates.length + ' shipment row' + (multi ? 's' : '') + ' of this item</span>'
+        + (multi ? '<label class="potag-all"><input type="checkbox" id="potagAll" checked> Select all</label>' : '')
+        + '</div>'
+        + '<div class="potag-list">' + listHtml + '</div>'
+        + '</div>'
+        + '<div class="modal-footer">'
+        + '<button class="btn" id="modalCancel">Cancel</button>'
+        + '<button class="btn btn-primary" id="potagApply">Apply Tag</button>'
+        + '</div></div></div>';
+
+      $('modalMount').innerHTML = html;
+      _attachEsc(closeModal);
+      $('modalClose').addEventListener('click', closeModal);
+      $('modalCancel').addEventListener('click', closeModal);
+      var backdrop = $('modalBackdrop');
+      if (backdrop) backdrop.addEventListener('click', closeModal);
+
+      var allCb = $('potagAll');
+      if (allCb) allCb.addEventListener('change', function () {
+        $('modalMount').querySelectorAll('.potag-cb').forEach(function (cb) { cb.checked = allCb.checked; });
+      });
+
+      $('potagApply').addEventListener('click', function () {
+        var poVal = String($('potagInput').value || '').trim();
+        var checked = Array.prototype.slice.call($('modalMount').querySelectorAll('.potag-cb:checked'))
+          .map(function (cb) { return parseInt(cb.dataset.ri, 10); });
+        if (!checked.length) { showToast('Select at least one shipment row.', 'error'); return; }
+        closeModal();
+        _bulkTagPoRef(checked, poRefHdr, poVal);
+      });
+    }
+
+    // Writes the chosen PO Number into the PO REF column of every selected incoming row.
+    // Optimistic in-memory update; silentRefresh reconciles with the sheet afterward.
+    function _bulkTagPoRef(rowIndices, poRefHdr, poNumber) {
+      var moduleId = 'incoming';
+      var m = STATE.modules.incoming;
+      var tab = tabFor('incoming');
+
+      var targets = [];
+      rowIndices.forEach(function (ri) {
+        var row = m.rows.find(function (r) { return r.__rowIndex === ri; });
+        if (row) targets.push(row);
+      });
+      if (!targets.length) return;
+
+      targets.forEach(function (row) { row[poRefHdr] = poNumber; });
+      saveCachedData(moduleId, m.headers, m.rows, m.sheetNameActual);
+      if (STATE.activeModule === moduleId) applyFiltersAndRender();
+
+      _fetchSeq++;
+      var done = 0, failed = 0;
+      targets.forEach(function (row) {
+        var data = Object.assign({}, row);
+        data[poRefHdr] = poNumber;
+        gasRun('updateRow', { sheetName: tab, rowIndex: row.__rowIndex, data: data })
+          .then(function (res) { if (!res || !res.success) failed++; })
+          .catch(function () { failed++; })
+          .then(function () {
+            done++;
+            if (done !== targets.length) return;
+            if (failed) {
+              showToast(failed + ' of ' + targets.length + ' tag(s) failed — refreshing.', 'error');
+            } else {
+              showToast('Tagged ' + targets.length + ' shipment row' + (targets.length > 1 ? 's' : '')
+                + ' → ' + (poNumber ? 'PO ' + poNumber : 'untagged'), 'success');
+            }
+            saveCachedData(moduleId, m.headers, m.rows, m.sheetNameActual);
+            markSynced();
+            silentRefresh();
+          });
+      });
     }
 
     function deleteCurrentRow(rowIndex) {
