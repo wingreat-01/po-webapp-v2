@@ -5614,6 +5614,30 @@
       return 'Partially Received';
     }
 
+    // Incoming rows grouped by PO REF (lowercased), rebuilt only when the incoming
+    // data changes. Lets the delivery panel look up the handful of rows for a PO
+    // instead of scanning every incoming row on each open.
+    var _incByPoIndex = null, _incByPoStamp = '';
+    function _invalidateIncomingIndex() { _incByPoIndex = null; _incByPoStamp = ''; }
+    function _incomingByPo() {
+      var incMod = STATE.modules.incoming;
+      if (!incMod || !incMod.loaded) return null;
+      var stamp = String(incMod.syncedAt || 0) + ':' + incMod.rows.length;
+      if (_incByPoIndex && _incByPoStamp === stamp) return _incByPoIndex;
+      var poRefHdr = _incPoRefHdr(incMod.headers);
+      var map = {};
+      if (poRefHdr) {
+        incMod.rows.forEach(function (r) {
+          var po = String(r[poRefHdr] || '').trim().toLowerCase();
+          if (!po) return;
+          (map[po] || (map[po] = [])).push(r);
+        });
+      }
+      _incByPoIndex = map;
+      _incByPoStamp = stamp;
+      return map;
+    }
+
     function _buildDeliveryPanelHtml(poRow, poHdrs) {
       poHdrs = poHdrs || STATE.modules.purchased.headers;
       var incMod   = STATE.modules.incoming;
@@ -5636,8 +5660,9 @@
 
       var deliveries = [];
       if (poId && incPoRefHdr && incMod.loaded) {
-        incMod.rows.forEach(function (r) {
-          if (String(r[incPoRefHdr] || '').trim().toLowerCase() !== poId.toLowerCase()) return;
+        var byPo = _incomingByPo();
+        var subset = (byPo && byPo[poId.toLowerCase()]) || [];
+        subset.forEach(function (r) {
           // When both sheets have an item code column, only count rows whose item code matches this PO line item
           if (poItemCode && incItemHdr) {
             var incItem = _itemMatchKey(String(r[incItemHdr] || ''));
@@ -5746,17 +5771,19 @@
     // without opening the full edit form.
     function showDeliveryHistoryModal(poRow, poHdrs) {
       poHdrs = poHdrs || STATE.modules.purchased.headers;
-      var built = _buildDeliveryPanelHtml(poRow, poHdrs);
       var poItemHdr = _itemCodeHdr(poHdrs);
       var poIdHdr = _poOrderNoHdr(poHdrs);
       var itemRaw = poItemHdr ? String(poRow[poItemHdr] || '').trim() : '';
       var poId = poIdHdr ? String(poRow[poIdHdr] || '').trim() : '';
       var titleSuffix = itemRaw ? ' — ' + escapeHtml(itemRaw) : (poId ? ' — PO ' + escapeHtml(poId) : '');
+
+      // Render the modal shell immediately (with a spinner) so it appears with no delay;
+      // the history is computed right after paint, or once incoming data finishes loading.
       var html = '<div class="modal-backdrop" id="modalBackdrop">'
         + '<div class="modal" onclick="event.stopPropagation()" style="width:640px">'
         + '<div class="modal-header"><h3>Received History' + titleSuffix + '</h3>'
         + '<button class="modal-close" id="modalClose">&times;</button></div>'
-        + '<div class="modal-body dlv-quickview-body">' + built.html + '</div>'
+        + '<div class="modal-body dlv-quickview-body" id="dlvBody"><div class="loader"><div class="spinner"></div>Loading…</div></div>'
         + '<div class="modal-footer">'
         + (isAdmin() ? '<button class="btn" id="dlvEditBtn">Open Full Record</button>' : '')
         + '<button class="btn btn-primary" id="modalCancel">Close</button>'
@@ -5772,6 +5799,38 @@
         closeModal();
         openModal('edit', poRow);
       });
+
+      function fill() {
+        var bodyEl = $('dlvBody');
+        if (!bodyEl) return; // modal was closed before data was ready
+        bodyEl.innerHTML = _buildDeliveryPanelHtml(poRow, poHdrs).html;
+      }
+
+      var incMod = STATE.modules.incoming;
+      if (incMod && incMod.loaded) {
+        setTimeout(fill, 0);            // let the shell paint first
+      } else {
+        _ensureIncomingLoaded(fill);    // fetch incoming, then fill
+      }
+    }
+
+    // Loads the Incoming Shipment module if it isn't in memory yet, then runs cb.
+    function _ensureIncomingLoaded(cb) {
+      var m = STATE.modules.incoming;
+      if (m && m.loaded) { cb(); return; }
+      gasRun('getRows', { sheetName: tabFor('incoming'), moduleId: 'incoming' })
+        .then(function (result) {
+          if (!m.loaded && result && !result.error && !result.disabled) {
+            m.headers = result.headers || [];
+            m.rows = excludeReceived('incoming', result.headers || [], result.rows || []);
+            m.sheetNameActual = result.sheetName || '';
+            m.syncedAt = Date.now();
+            m.loaded = true;
+            saveCachedData('incoming', m.headers, m.rows, m.sheetNameActual);
+          }
+          cb();
+        })
+        .catch(function () { cb(); });
     }
 
     // Unique PO numbers from the Purchased Order module, newest first.
@@ -5956,6 +6015,7 @@
           t.row[qtyRcvdHdr] = t.qty;
         }
       });
+      _invalidateIncomingIndex(); // PO refs changed in place — force the delivery index to rebuild
       saveCachedData(moduleId, m.headers, m.rows, m.sheetNameActual);
       if (STATE.activeModule === moduleId) applyFiltersAndRender();
 
