@@ -3235,7 +3235,7 @@
         td.addEventListener('click', function () {
           var idx = parseInt(td.dataset.itemhist, 10);
           var row = activeMod().rows.find(function (r) { return r.__rowIndex === idx; });
-          if (row) showDeliveryHistoryModal(row);
+          if (row) showDeliveryHistoryModal(row, activeMod().headers);
         });
       });
       $('tableContainer').querySelectorAll('td[data-potag]:not([data-wired])').forEach(function (td) {
@@ -3262,15 +3262,15 @@
             html += '<td' + colStyle(h, false) + '>' + colCellHtml(h, v) + '</td>';
           }
         } else if (hKey === 'ITEMCODE') {
-          // Item code is a quick action link: Purchased Order -> received history popup;
+          // Item code is a quick action link: Purchased Order / Received -> received history popup;
           // Incoming Shipment -> tag PO number popup.
-          var _isPO  = STATE.activeModule === 'purchased' && row.__rowIndex >= 0;
-          var _isInc = STATE.activeModule === 'incoming'  && row.__rowIndex >= 0;
-          var _link  = _isPO || _isInc;
+          var _isHist = (STATE.activeModule === 'purchased' || STATE.activeModule === 'received') && row.__rowIndex >= 0;
+          var _isInc  = STATE.activeModule === 'incoming' && row.__rowIndex >= 0;
+          var _link   = _isHist || _isInc;
           var _icCls = ' class="col-itemcode' + (_link ? ' col-itemcode-link' : '') + '"';
-          var _icAttr = _isPO ? ' data-itemhist="' + row.__rowIndex + '"'
+          var _icAttr = _isHist ? ' data-itemhist="' + row.__rowIndex + '"'
                       : _isInc ? ' data-potag="' + row.__rowIndex + '"' : '';
-          var _icTitle = _isPO ? 'View received history' : _isInc ? 'Tag PO number' : v;
+          var _icTitle = _isHist ? 'View received history' : _isInc ? 'Tag PO number' : v;
           html += '<td' + colStyle(h, false) + _icCls + _icAttr + ' title="' + escapeHtml(_icTitle) + '">' + colCellHtml(h, v) + '</td>';
         } else {
           html += '<td' + colStyle(h, false) + ' title="' + escapeHtml(v) + '">' + colCellHtml(h, v) + '</td>';
@@ -5614,8 +5614,8 @@
       return 'Partially Received';
     }
 
-    function _buildDeliveryPanelHtml(poRow) {
-      var poHdrs   = STATE.modules.purchased.headers;
+    function _buildDeliveryPanelHtml(poRow, poHdrs) {
+      poHdrs = poHdrs || STATE.modules.purchased.headers;
       var incMod   = STATE.modules.incoming;
 
       var poIdHdr    = _poOrderNoHdr(poHdrs);
@@ -5744,9 +5744,9 @@
     // Quick-view popup: click an Item Code in the Purchased Order table to see its
     // received history (shipment, date, qty, running total) and remaining balance,
     // without opening the full edit form.
-    function showDeliveryHistoryModal(poRow) {
-      var built = _buildDeliveryPanelHtml(poRow);
-      var poHdrs = STATE.modules.purchased.headers;
+    function showDeliveryHistoryModal(poRow, poHdrs) {
+      poHdrs = poHdrs || STATE.modules.purchased.headers;
+      var built = _buildDeliveryPanelHtml(poRow, poHdrs);
       var poItemHdr = _itemCodeHdr(poHdrs);
       var poIdHdr = _poOrderNoHdr(poHdrs);
       var itemRaw = poItemHdr ? String(poRow[poItemHdr] || '').trim() : '';
