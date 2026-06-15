@@ -327,6 +327,9 @@
       th.col-itemcode { background: rgba(47,129,247,0.10) !important; border-left: 2px solid rgba(47,129,247,0.45) !important; color: #6aabee !important; }
       td.col-itemcode { background: rgba(47,129,247,0.05); border-left: 2px solid rgba(47,129,247,0.3) !important; font-weight: 600; color: #8fb8e8; }
       tbody tr:hover td.col-itemcode { background: rgba(47,129,247,0.10); }
+      /* Item code acts as a link to the received-history popup (Purchased Order) */
+      td.col-itemcode-link { cursor: pointer; }
+      td.col-itemcode-link:hover { text-decoration: underline; background: rgba(47,129,247,0.18) !important; }
       thead th.spacer-col { cursor: default; }
       thead th.spacer-col:hover { background: var(--panel-2); }
       td.spacer { padding: 0; }
@@ -398,6 +401,7 @@
 
       /* Delivery tracking panel */
       .delivery-panel { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 14px; }
+      .dlv-quickview-body .delivery-panel { margin-top: 0; border-top: none; padding-top: 0; }
       .delivery-panel-title { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
       .delivery-panel-po { font-weight: 400; color: var(--accent); margin-left: 4px; }
       .delivery-no-data { font-size: 12px; color: var(--muted); padding: 8px 0; }
@@ -3208,6 +3212,14 @@
           showStatusPicker(td, parseInt(td.dataset.row, 10), td.dataset.field);
         });
       });
+      $('tableContainer').querySelectorAll('td[data-itemhist]:not([data-wired])').forEach(function (td) {
+        td.dataset.wired = '1';
+        td.addEventListener('click', function () {
+          var idx = parseInt(td.dataset.itemhist, 10);
+          var row = activeMod().rows.find(function (r) { return r.__rowIndex === idx; });
+          if (row) showDeliveryHistoryModal(row);
+        });
+      });
     }
 
     // Builds the HTML string for a single table row. Used by renderTable for both
@@ -3223,9 +3235,15 @@
           } else {
             html += '<td' + colStyle(h, false) + '>' + colCellHtml(h, v) + '</td>';
           }
+        } else if (hKey === 'ITEMCODE') {
+          // In Purchased Order, the item code is a quick link to the delivery-history popup.
+          var _isPO = STATE.activeModule === 'purchased' && row.__rowIndex >= 0;
+          var _icCls = ' class="col-itemcode' + (_isPO ? ' col-itemcode-link' : '') + '"';
+          var _icAttr = _isPO ? ' data-itemhist="' + row.__rowIndex + '"' : '';
+          var _icTitle = _isPO ? 'View received history' : v;
+          html += '<td' + colStyle(h, false) + _icCls + _icAttr + ' title="' + escapeHtml(_icTitle) + '">' + colCellHtml(h, v) + '</td>';
         } else {
-          var tdCls = hKey === 'ITEMCODE' ? ' class="col-itemcode"' : '';
-          html += '<td' + colStyle(h, false) + tdCls + ' title="' + escapeHtml(v) + '">' + colCellHtml(h, v) + '</td>';
+          html += '<td' + colStyle(h, false) + ' title="' + escapeHtml(v) + '">' + colCellHtml(h, v) + '</td>';
         }
       });
       if (row.__rowIndex < 0) {
@@ -5566,7 +5584,7 @@
       return 'Partially Received';
     }
 
-    function _injectDeliveryPanel(poRow) {
+    function _buildDeliveryPanelHtml(poRow) {
       var poHdrs   = STATE.modules.purchased.headers;
       var incMod   = STATE.modules.incoming;
 
@@ -5652,12 +5670,20 @@
 
       html += '</div>';
 
+      return { html: html, autoStatus: autoStatus };
+    }
+
+    // Appends the delivery-history panel to the open PO edit modal, plus an
+    // "auto-set status" shortcut wired to the modal's STATUS <select>.
+    function _injectDeliveryPanel(poRow) {
+      var built = _buildDeliveryPanelHtml(poRow);
       var modalBody = document.querySelector('#modalMount .modal-body');
       if (!modalBody) return;
       var panel = document.createElement('div');
-      panel.innerHTML = html;
+      panel.innerHTML = built.html;
       modalBody.appendChild(panel.firstChild);
 
+      var autoStatus = built.autoStatus;
       if (autoStatus) {
         document.querySelectorAll('#modalMount [data-field]').forEach(function (el) {
           if (_hdrNorm(el.dataset.field) === 'STATUS' && el.tagName === 'SELECT') {
@@ -5683,6 +5709,39 @@
           }
         });
       }
+    }
+
+    // Quick-view popup: click an Item Code in the Purchased Order table to see its
+    // received history (shipment, date, qty, running total) and remaining balance,
+    // without opening the full edit form.
+    function showDeliveryHistoryModal(poRow) {
+      var built = _buildDeliveryPanelHtml(poRow);
+      var poHdrs = STATE.modules.purchased.headers;
+      var poItemHdr = _itemCodeHdr(poHdrs);
+      var poIdHdr = _poOrderNoHdr(poHdrs);
+      var itemRaw = poItemHdr ? String(poRow[poItemHdr] || '').trim() : '';
+      var poId = poIdHdr ? String(poRow[poIdHdr] || '').trim() : '';
+      var titleSuffix = itemRaw ? ' — ' + escapeHtml(itemRaw) : (poId ? ' — PO ' + escapeHtml(poId) : '');
+      var html = '<div class="modal-backdrop" id="modalBackdrop">'
+        + '<div class="modal" onclick="event.stopPropagation()" style="width:640px">'
+        + '<div class="modal-header"><h3>Received History' + titleSuffix + '</h3>'
+        + '<button class="modal-close" id="modalClose">&times;</button></div>'
+        + '<div class="modal-body dlv-quickview-body">' + built.html + '</div>'
+        + '<div class="modal-footer">'
+        + (isAdmin() ? '<button class="btn" id="dlvEditBtn">Open Full Record</button>' : '')
+        + '<button class="btn btn-primary" id="modalCancel">Close</button>'
+        + '</div></div></div>';
+      $('modalMount').innerHTML = html;
+      _attachEsc(closeModal);
+      $('modalClose').addEventListener('click', closeModal);
+      $('modalCancel').addEventListener('click', closeModal);
+      var backdrop = $('modalBackdrop');
+      if (backdrop) backdrop.addEventListener('click', closeModal);
+      var editBtn = $('dlvEditBtn');
+      if (editBtn) editBtn.addEventListener('click', function () {
+        closeModal();
+        openModal('edit', poRow);
+      });
     }
 
     function _injectPoRefSelector(row) {
