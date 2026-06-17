@@ -1031,7 +1031,7 @@
       /* Invoice inline search + autocomplete */
       .invoice-search-wrap { position: relative; margin-left: auto; display: flex; align-items: center; }
       .invoice-search-input {
-        width: 210px; padding: 6px 26px 6px 28px;
+        width: 420px; padding: 6px 26px 6px 28px;
         background: var(--panel-2); border: 1px solid var(--border);
         color: var(--text); border-radius: 6px; font-size: 13px;
         outline: none; font-family: inherit;
@@ -1050,16 +1050,30 @@
       .invoice-search-wrap.has-value .invoice-search-clear { display: block; }
       .invoice-search-ac {
         position: absolute; top: calc(100% + 4px); left: 0;
-        min-width: 240px; width: max-content; max-width: 340px;
+        min-width: 280px; width: max-content; max-width: 420px;
         background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
-        box-shadow: 0 6px 18px rgba(0,0,0,0.55); max-height: 220px; overflow-y: auto;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.55); max-height: 240px; overflow-y: auto;
         z-index: 310; font-size: 13px;
       }
-      .invoice-ac-item { padding: 6px 10px; cursor: pointer; border-bottom: 1px solid var(--border); }
+      .invoice-ac-item { padding: 6px 10px; cursor: pointer; border-bottom: 1px solid var(--border);
+        display: flex; align-items: center; gap: 9px; }
       .invoice-ac-item:last-child { border-bottom: none; }
       .invoice-ac-item:hover, .invoice-ac-item.ac-active { background: var(--row-hover); }
+      .invoice-ac-item.ac-pinned { background: var(--row-hover); }
       .invoice-ac-col { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
       .invoice-ac-val { color: var(--text); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      /* Multi-select checkbox layout inside the invoice autosuggest */
+      .invoice-ac-check { flex: 0 0 auto; width: 15px; height: 15px; border-radius: 3px;
+        border: 1.5px solid var(--border); background: var(--panel-2); display: inline-flex;
+        align-items: center; justify-content: center; color: #fff; font-size: 11px; line-height: 1; }
+      .invoice-ac-item.ac-pinned .invoice-ac-check { background: var(--accent); border-color: var(--accent); }
+      .invoice-ac-text { min-width: 0; flex: 1; }
+      .invoice-ac-text > .invoice-ac-col, .invoice-ac-text > .invoice-ac-val { display: block; }
+      .invoice-ac-head { display: flex; align-items: center; justify-content: space-between;
+        padding: 5px 10px; font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--border);
+        position: sticky; top: 0; background: var(--panel); z-index: 1; }
+      .invoice-ac-clear { color: var(--accent); cursor: pointer; font-weight: 600; }
+      .invoice-ac-clear:hover { text-decoration: underline; }
 
       /* ============ Batch Invoice Modal ============ */
       .batch-table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -3662,22 +3676,43 @@
         return results.slice(0, 10);
       }
 
+      function isPinned(item) {
+        const list = activeMod().pinnedItems || [];
+        return list.some(function (p) {
+          return p.col === item.col && p.val.toLowerCase() === item.val.toLowerCase();
+        });
+      }
+
       function renderAC() {
         if (acItems.length === 0) { ac.style.display = 'none'; return; }
-        let html = '';
+        const pinnedCount = (activeMod().pinnedItems || []).length;
+        let html = '<div class="invoice-ac-head"><span>Check items to display</span>'
+          + (pinnedCount ? '<span class="invoice-ac-clear" data-acclear="1">Clear (' + pinnedCount + ')</span>' : '')
+          + '</div>';
         acItems.forEach(function (item, i) {
-          const cls = i === activeIdx ? ' ac-active' : '';
-          html += '<div class="invoice-ac-item' + cls + '" data-i="' + i + '">'
-            + '<div class="invoice-ac-col">' + escapeHtml(item.col) + '</div>'
-            + '<div class="invoice-ac-val">' + escapeHtml(item.val) + '</div>'
+          const active = i === activeIdx ? ' ac-active' : '';
+          const pinned = isPinned(item);
+          html += '<div class="invoice-ac-item' + active + (pinned ? ' ac-pinned' : '') + '" data-i="' + i + '">'
+            + '<span class="invoice-ac-check">' + (pinned ? '&#10003;' : '') + '</span>'
+            + '<span class="invoice-ac-text">'
+            +   '<span class="invoice-ac-col">' + escapeHtml(item.col) + '</span>'
+            +   '<span class="invoice-ac-val">' + escapeHtml(item.val) + '</span>'
+            + '</span>'
             + '</div>';
         });
         ac.innerHTML = html;
         ac.style.display = 'block';
+        const clr = ac.querySelector('[data-acclear]');
+        if (clr) clr.addEventListener('mousedown', function (e) {
+          e.preventDefault();
+          activeMod().pinnedItems = [];
+          renderAC();
+          applyFiltersAndRender();
+        });
         ac.querySelectorAll('.invoice-ac-item').forEach(function (el) {
           el.addEventListener('mousedown', function (e) {
-            e.preventDefault();
-            pickAC(parseInt(el.dataset.i, 10));
+            e.preventDefault(); // keep focus in the input so the dropdown stays open
+            togglePin(parseInt(el.dataset.i, 10));
           });
           el.addEventListener('mouseenter', function () {
             activeIdx = parseInt(el.dataset.i, 10);
@@ -3692,14 +3727,18 @@
         });
       }
 
-      function pickAC(idx) {
+      // Toggle an item in/out of the invoice module's pinned-display set.
+      function togglePin(idx) {
         const item = acItems[idx];
         if (!item) return;
-        inp.value = item.val;
-        activeMod().globalQuery = item.val;
-        inp.closest('.invoice-search-wrap').classList.add('has-value');
-        ac.style.display = 'none';
-        acItems = []; activeIdx = -1;
+        const m = activeMod();
+        if (!m.pinnedItems) m.pinnedItems = [];
+        const at = m.pinnedItems.findIndex(function (p) {
+          return p.col === item.col && p.val.toLowerCase() === item.val.toLowerCase();
+        });
+        if (at === -1) m.pinnedItems.push({ col: item.col, val: item.val });
+        else m.pinnedItems.splice(at, 1);
+        renderAC();
         applyFiltersAndRender();
       }
 
@@ -3737,7 +3776,7 @@
         } else if (e.key === 'Enter') {
           if (activeIdx >= 0 && acItems.length > 0) {
             e.preventDefault();
-            pickAC(activeIdx);
+            togglePin(activeIdx); // check/uncheck the highlighted item
           } else {
             hideAC();
           }
