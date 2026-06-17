@@ -2688,6 +2688,14 @@
         if (isNaN(num)) return escaped;
         return num.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
       }
+      // ROLL: thousand separators, decimals only when present (e.g. 210,000 or 1.5)
+      if (key === 'ROLL') {
+        const raw = String(value == null ? '' : value).trim();
+        if (raw === '') return '';
+        const num = parseFloat(raw.replace(/,/g, ''));
+        if (isNaN(num)) return escaped;
+        return num.toLocaleString('en-US', { maximumFractionDigits: 4 });
+      }
       if (WRAP_COLUMNS[key]) {
         // Preserve newlines (Alt+Enter lines) — replace \n with <br> and use pre-wrap
         const withBreaks = escaped.replace(/\r\n|\r|\n/g, '<br>');
