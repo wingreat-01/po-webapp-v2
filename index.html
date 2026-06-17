@@ -4858,11 +4858,8 @@
         const lm        = parseFloat(getVal('LM'))        || 0;
         const roll      = parseFloat(getVal('ROLL'))      || 0;
         const unitPrice = parseFloat(getVal('UNITPRICE')) || 0;
-        const itemCode  = getVal('ITEM') || getVal('ITEMCODE') || '';
 
-        // SQM = ROLL for listed item codes (sheets / fixed-size) or 24x36 dimensions;
-        // otherwise the default W-M x L-M x ROLL.
-        const sqm      = (_sqmEqualsRoll(itemCode) || (wm === 24 && lm === 36)) ? roll : wm * lm * roll;
+        const sqm      = (wm === 24 && lm === 36) ? roll : wm * lm * roll;
         const totalUsd = sqm * unitPrice;
         const perRoll  = roll !== 0 ? totalUsd / roll : 0;
 
@@ -4965,7 +4962,7 @@
         const el = e.target;
         if (!el || !el.classList.contains('batch-cell')) return;
         const key = (el.dataset.field || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-        if (key === 'WM' || key === 'LM' || key === 'ROLL' || key === 'UNITPRICE' || key === 'ITEM' || key === 'ITEMCODE') {
+        if (key === 'WM' || key === 'LM' || key === 'ROLL' || key === 'UNITPRICE') {
           const tr = el.closest('tr');
           if (tr) recalcBatchRow(tr);
         }
@@ -5264,9 +5261,6 @@
           if (descEl) descEl.value = s.desc;
           hide();
           _picking = false;
-          // Item code drives the SQM rule, so recompute this row after picking.
-          var _tr = currentInput.closest('tr');
-          if (_tr) { recalcBatchRow(_tr); updateBatchTotals(); }
         }
 
         function highlightAC() {
@@ -5619,18 +5613,6 @@
     // ============ Delivery Tracking Helpers ==============================
     // =====================================================================
     function _hdrNorm(h) { return h.toUpperCase().replace(/[^A-Z0-9]/g, ''); }
-
-    // Item codes whose SQM equals the ROLL count (sheets / fixed-size items),
-    // rather than the default W-M x L-M x ROLL.
-    var _SQM_EQUALS_ROLL = {
-      A4BPYB: 1, A4HGYB: 1, A4BPBB: 1,
-      SPYB24X36: 1, SPYB36X24: 1, HGYB24X36: 1, HGYB36X24: 1,
-      BPYB24X36: 1, BPYB36X24: 1, SPWB24X36: 1, SPWB36X24: 1,
-      HGWB24X36: 1, HGWB36X24: 1
-    };
-    function _sqmEqualsRoll(itemRaw) {
-      return !!_SQM_EQUALS_ROLL[_hdrNorm(String(itemRaw || ''))];
-    }
 
     function _findHdr(headers, keys) {
       for (var i = 0; i < headers.length; i++) {
