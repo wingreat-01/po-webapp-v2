@@ -3541,6 +3541,16 @@
       if (current) {
         html += '<span class="shipment-bar-count">Showing ' + countSel + ' of ' + countAll + ' records</span>';
         if (STATE.activeModule === 'invoice') {
+          // Freight for this invoice — added into the TOTAL USD shown below
+          var _frHdr = _findHdr(m.headers, ['FREIGHT', 'FREIGHTUSD', 'FREIGHTCOST', 'FREIGHTCHARGE', 'FRT']);
+          var _frVal = '';
+          if (_frHdr) {
+            for (var _fi = 0; _fi < m.filtered.length; _fi++) {
+              var _fv = String(m.filtered[_fi][_frHdr] || '').trim();
+              if (_fv) { _frVal = _fv; break; }
+            }
+          }
+          var _frNum = parseFloat(String(_frVal).replace(/,/g, '')) || 0;
           var _dateHdr = m.headers.find(function (h) {
             var k = h.toUpperCase().replace(/[^A-Z0-9]/g, '');
             return k === 'DATE' || k === 'INVOICEDATE' || k === 'INVDATE';
@@ -3563,6 +3573,7 @@
               var _v = parseFloat(String(r[_totalHdr] || '').replace(/[^0-9.-]/g, ''));
               if (!isNaN(_v)) _sum += _v;
             });
+            _sum += _frNum; // include freight in the displayed TOTAL USD
             var _fmt = _sum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             html += '<span class="shipment-bar-total">'
               + '<span class="shipment-bar-total-lbl">' + escapeHtml(_totalHdr) + '</span>'
@@ -3583,14 +3594,6 @@
             }
           }
           // FREIGHT — editable, saved to the FREIGHT column of this invoice
-          var _frHdr = _findHdr(m.headers, ['FREIGHT', 'FREIGHTUSD', 'FREIGHTCOST', 'FREIGHTCHARGE', 'FRT']);
-          var _frVal = '';
-          if (_frHdr) {
-            for (var _fi = 0; _fi < m.filtered.length; _fi++) {
-              var _fv = String(m.filtered[_fi][_frHdr] || '').trim();
-              if (_fv) { _frVal = _fv; break; }
-            }
-          }
           html += '<span class="shipment-bar-total">'
             + '<span class="shipment-bar-total-lbl">FREIGHT</span>'
             + '<input id="invFreightInput" class="inv-freight-input" type="text" inputmode="decimal" value="'
@@ -3645,6 +3648,7 @@
       var prev = target[freightHdr];
       if (String(prev || '') === String(numVal)) return; // no change
       target[freightHdr] = numVal;
+      renderShipmentBar(); // reflect the new freight in the TOTAL USD immediately
 
       var tab = m.invoiceTab || INVOICE_TABS[0];
       var data = Object.assign({}, target);
