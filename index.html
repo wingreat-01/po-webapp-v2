@@ -2831,9 +2831,9 @@
     // =====================================================================
     // ============ Data Loading ===========================================
     // =====================================================================
-    function loadActiveModule() {
+    function loadActiveModule(force) {
       if (STATE.activeModule === 'invoice') {
-        loadInvoiceSubTab(activeMod().invoiceTab || INVOICE_TABS[0]);
+        loadInvoiceSubTab(activeMod().invoiceTab || INVOICE_TABS[0], force);
         return;
       }
       const m = activeMod();
@@ -2843,7 +2843,8 @@
 
       // Try the localStorage cache first for instant first paint.
       // If we have cached data, render it now and refresh quietly in the background.
-      if (!m.loaded) {
+      // Skipped when force=true (Reload) so we always pull fresh from the sheet.
+      if (!m.loaded && !force) {
         const cached = loadCachedData(moduleId);
         if (cached && cached.headers && cached.headers.length) {
           m.headers = cached.headers;
@@ -2884,7 +2885,7 @@
         }
       }, 12000);
 
-      gasRun('getRows', { sheetName: tab, moduleId: moduleId })
+      gasRun('getRows', { sheetName: tab, moduleId: moduleId, bustCache: force ? 1 : 0 })
         .then(function (result) {
           clearTimeout(watchdog);
           m.loading = false;
@@ -2967,7 +2968,7 @@
       m.shipmentFilter = values[0];
     }
 
-    function loadInvoiceSubTab(tabName) {
+    function loadInvoiceSubTab(tabName, force) {
       const m = STATE.modules.invoice;
       if (!tabName) tabName = INVOICE_TABS[0];
       if (m.invoiceTab !== tabName) m.shipmentFilter = '';
@@ -2975,7 +2976,7 @@
 
       const INVOICE_CACHE_TTL = 30000;
       const cached = m.subTabData[tabName];
-      if (cached && cached.loaded) {
+      if (!force && cached && cached.loaded) {
         m.headers = cached.headers;
         m.rows = cached.rows;
         m.sheetNameActual = tabName;
@@ -3003,7 +3004,7 @@
         renderInvoiceTabBar();
       }
 
-      gasRun('getRows', { sheetName: tabName, moduleId: 'invoice' })
+      gasRun('getRows', { sheetName: tabName, moduleId: 'invoice', bustCache: force ? 1 : 0 })
         .then(function (result) {
           m.loading = false;
           if (result && result.disabled) {
@@ -4129,8 +4130,15 @@
     }
 
     $('reloadBtn').addEventListener('click', function () {
-      activeMod().loaded = false;
-      loadActiveModule();
+      if (STATE.activeModule === 'invoice') {
+        var im = STATE.modules.invoice;
+        var itab = im.invoiceTab || INVOICE_TABS[0];
+        if (im.subTabData) delete im.subTabData[itab]; // drop in-memory cache for this sub-tab
+        loadInvoiceSubTab(itab, true);                 // force = bypass backend cache
+      } else {
+        activeMod().loaded = false;
+        loadActiveModule(true);                        // force = bypass localStorage + backend cache
+      }
     });
     $('genPoBtn').addEventListener('click', openGenPoDialog);
 

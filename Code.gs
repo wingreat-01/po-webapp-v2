@@ -72,7 +72,7 @@ function doGet(e) {
           } catch (e) {}
         }
       }
-      result = getRows(p.sheetName);
+      result = getRows(p.sheetName, p.bustCache);
       break;
     case 'getUsers':     result = getUsers();             break;
     case 'getColVis':    result = getColVis();            break;
@@ -177,16 +177,23 @@ function listSheets() {
  * Results are cached in CacheService for CACHE_TTL_SECONDS so subsequent
  * reads are very fast. The cache is invalidated by addRow/updateRow/deleteRow.
  */
-function getRows(sheetName) {
+function getRows(sheetName, bustCache) {
   try {
     const sheet = getSheet_(sheetName);
     const actualName = sheet.getName();
     const cache = CacheService.getScriptCache();
     const cacheKey = 'rows_' + actualName;
 
-    const cached = cache.get(cacheKey);
-    if (cached) {
-      try { return JSON.parse(cached); } catch (e) { /* fall through */ }
+    // bustCache=1 (sent by the app's Reload button) forces a fresh read from the
+    // sheet, so rows typed directly into Google Sheets show up without waiting for
+    // the cache to expire.
+    if (String(bustCache) === '1') {
+      cache.remove(cacheKey);
+    } else {
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        try { return JSON.parse(cached); } catch (e) { /* fall through */ }
+      }
     }
 
     const lastRow = sheet.getLastRow();
