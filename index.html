@@ -1017,6 +1017,12 @@
       }
       .shipment-bar-total-lbl { color: var(--muted); }
       .shipment-bar-total strong { color: var(--success); font-weight: 700; font-size: 13px; }
+      .inv-freight-input {
+        width: 92px; padding: 2px 6px; background: var(--panel); border: 1px solid var(--border);
+        border-radius: 5px; color: var(--accent); font-weight: 700; font-size: 13px;
+        font-family: inherit; text-align: right; outline: none;
+      }
+      .inv-freight-input:focus { border-color: var(--accent); }
 
       /* Invoice sub-tab bar */
       .invoice-tab-bar { display: flex; align-items: center; gap: 6px; padding: 8px 0 10px; border-bottom: 1px solid var(--border); margin-bottom: 10px; flex-wrap: wrap; }
@@ -3576,6 +3582,21 @@
                 + '</span>';
             }
           }
+          // FREIGHT — editable, saved to the FREIGHT column of this invoice
+          var _frHdr = _findHdr(m.headers, ['FREIGHT', 'FREIGHTUSD', 'FREIGHTCOST', 'FREIGHTCHARGE', 'FRT']);
+          var _frVal = '';
+          if (_frHdr) {
+            for (var _fi = 0; _fi < m.filtered.length; _fi++) {
+              var _fv = String(m.filtered[_fi][_frHdr] || '').trim();
+              if (_fv) { _frVal = _fv; break; }
+            }
+          }
+          html += '<span class="shipment-bar-total">'
+            + '<span class="shipment-bar-total-lbl">FREIGHT</span>'
+            + '<input id="invFreightInput" class="inv-freight-input" type="text" inputmode="decimal" value="'
+            + escapeHtml(_frVal) + '" placeholder="0.00"'
+            + (_frHdr ? '' : ' title="Add a FREIGHT column to this invoice tab to save"') + '>'
+            + '</span>';
         }
       }
       html += '</div>';
@@ -3587,6 +3608,62 @@
         activeMod().shipmentFilter = this.value;
         applyFiltersAndRender();
       });
+
+      var _frInput = document.getElementById('invFreightInput');
+      if (_frInput) {
+        _frInput.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') { e.preventDefault(); _frInput.blur(); }
+        });
+        _frInput.addEventListener('change', function () { _saveInvoiceFreight(_frInput.value); });
+      }
+    }
+
+    // Saves the freight amount for the currently selected invoice to the FREIGHT
+    // column (stored once, on the invoice's first row). One value per invoice.
+    function _saveInvoiceFreight(rawVal) {
+      var m = STATE.modules.invoice;
+      if (!m || !m.loaded) return;
+      var freightHdr = _findHdr(m.headers, ['FREIGHT', 'FREIGHTUSD', 'FREIGHTCOST', 'FREIGHTCHARGE', 'FRT']);
+      if (!freightHdr) {
+        showToast('Add a "FREIGHT" column to this invoice tab to save freight.', 'error');
+        return;
+      }
+      var invHdr = m.headers.find(function (h) { return _hdrNorm(h).indexOf('INVOICE') === 0; })
+        || m.headers.find(function (h) { return _hdrNorm(h).indexOf('SHIPMENT') === 0; });
+      if (!invHdr) return;
+      var invNo = m.shipmentFilter;
+      if (!invNo) { showToast('Select an invoice first.', 'error'); return; }
+
+      var rows = m.rows.filter(function (r) { return String(r[invHdr] || '').trim() === invNo; });
+      if (!rows.length) return;
+      rows.sort(function (a, b) { return a.__rowIndex - b.__rowIndex; });
+      var target = rows[0];
+
+      var clean = String(rawVal == null ? '' : rawVal).replace(/,/g, '').trim();
+      var numVal = clean === '' ? '' : (parseFloat(clean) || 0);
+
+      var prev = target[freightHdr];
+      if (String(prev || '') === String(numVal)) return; // no change
+      target[freightHdr] = numVal;
+
+      var tab = m.invoiceTab || INVOICE_TABS[0];
+      var data = Object.assign({}, target);
+      _fetchSeq++;
+      gasRun('updateRow', { sheetName: tab, rowIndex: target.__rowIndex, data: data })
+        .then(function (res) {
+          if (res && res.success) {
+            showToast('Freight saved for ' + invNo, 'success');
+            markSynced();
+            silentRefreshInvoiceSubTab(tab);
+          } else {
+            target[freightHdr] = prev;
+            showToast('Failed to save freight: ' + (res && res.error ? res.error : 'unknown'), 'error');
+          }
+        })
+        .catch(function (err) {
+          target[freightHdr] = prev;
+          showToast('Failed to save freight: ' + (err.message || err), 'error');
+        });
     }
 
     // =====================================================================
