@@ -2257,13 +2257,30 @@
       }
 
       // Intercept auth-required responses globally so every caller doesn't have to.
+      // Silent background reads (getRows, getTabConfig on auto-refresh) don't force
+      // logout — they just return the error so the caller can ignore it.
+      // Only user-initiated writes (addRow, updateRow, etc.) force logout immediately.
+      var _isSilentRead = _GAS_READS[action];
       return promise.then(function(res) {
         if (res && res.authRequired && action !== 'login') {
-          _handleAuthRequired();
+          if (_isSilentRead) {
+            // Background refresh: schedule a gentle reminder after a short delay
+            // instead of forcing immediate logout.
+            clearTimeout(_authWarnTimer);
+            _authWarnTimer = setTimeout(function () {
+              if (_getToken()) {
+                showToast('Session may have expired — please save your work and sign in again.', 'error');
+              }
+            }, 3000);
+          } else {
+            _handleAuthRequired();
+          }
         }
         return res;
       });
     }
+
+    var _authWarnTimer = null;
 
     // Sheet-backed account cache — fetched once per page load from the USERS tab.
     // Sheet accounts are merged on top of local defaults so admin/user always work
@@ -2468,8 +2485,12 @@
       const el = document.createElement('div');
       el.className = 'toast ' + type;
       el.textContent = msg;
+      el.style.cursor = 'pointer';
+      el.title = 'Click to dismiss';
+      el.addEventListener('click', function () { el.remove(); });
       $('toastMount').appendChild(el);
-      setTimeout(function () { el.remove(); }, 3000);
+      const duration = (type === 'error') ? 8000 : 3000;
+      setTimeout(function () { if (el.parentNode) el.remove(); }, duration);
     }
     function activeMod() { return STATE.modules[STATE.activeModule]; }
     function activeCfg() { return MODULES[STATE.activeModule]; }
@@ -5563,8 +5584,16 @@
       (function submitSeq(i) {
         if (i >= rows.length) return;
         gasRun('addRow', { sheetName: tab, data: rows[i] })
-          .then(function (res) { tick(!!(res && res.success)); submitSeq(i + 1); })
-          .catch(function ()   { tick(false);                  submitSeq(i + 1); });
+          .then(function (res) {
+            if (!res || !res.success) console.error('[addRow] row', i, 'failed:', res);
+            tick(!!(res && res.success));
+            submitSeq(i + 1);
+          })
+          .catch(function (err) {
+            console.error('[addRow] row', i, 'network error:', err);
+            tick(false);
+            submitSeq(i + 1);
+          });
       })(0);
     }
 
@@ -7019,7 +7048,7 @@
     // =====================================================================
     // ============ Auto-refresh ===========================================
     // =====================================================================
-    const AUTO_REFRESH_MS = 60 * 1000; // refresh every 60 seconds — change this value to adjust
+    const AUTO_REFRESH_MS = 5 * 60 * 1000; // refresh every 5 minutes
 
     let _fetchSeq = 0; // incremented on every save; stale silentRefresh responses are discarded
     let _refreshTimer = null;
