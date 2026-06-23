@@ -393,25 +393,33 @@ const TOKEN_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 function _getTokenSecret_() {
   try {
     const props = PropertiesService.getScriptProperties();
-    let secret = props.getProperty('TOKEN_SECRET');
-    if (secret) return secret;
-    // First run or secret was cleared — generate and persist a new one.
-    const seed = String(Math.random()) + ':' + String(Date.now()) + ':' + Utilities.getUuid();
-    secret = Utilities.base64Encode(
-      Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, seed)
+    const stored = props.getProperty('TOKEN_SECRET');
+    if (stored) return stored;
+    // First run — generate, persist, and verify the write succeeded.
+    const newSecret = Utilities.base64Encode(
+      Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,
+        Utilities.getUuid() + ':' + Date.now())
     );
-    props.setProperty('TOKEN_SECRET', secret);
-    // Verify the write actually persisted. If it didn't, fall through to fallback.
-    const verify = props.getProperty('TOKEN_SECRET');
-    if (verify) return verify;
-    Logger.log('_getTokenSecret_: PropertiesService write did not persist — using fallback');
+    props.setProperty('TOKEN_SECRET', newSecret);
+    const check = props.getProperty('TOKEN_SECRET');
+    if (check) return check;
+    // Write didn't persist — fall through to stable fallback below.
+    Logger.log('_getTokenSecret_: PropertiesService write did not persist');
   } catch (e) {
     Logger.log('_getTokenSecret_: PropertiesService error — ' + e);
   }
-  // PropertiesService unavailable. Both sign and verify land here and return
-  // the same constant, so tokens remain valid within this GAS project even
-  // when script properties are broken. Security is degraded but the app works.
-  return 'PO_WEBAPP_FALLBACK_SECRET_v1';
+  // PropertiesService is unavailable or unreliable. Derive a stable secret
+  // from the spreadsheet ID so every GAS execution returns the SAME value
+  // without needing persistent storage — sign and verify always agree.
+  try {
+    const ssId = SpreadsheetApp.getActiveSpreadsheet().getId();
+    return Utilities.base64Encode(
+      Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, 'PO_WEBAPP:' + ssId)
+    );
+  } catch (e2) {
+    Logger.log('_getTokenSecret_: spreadsheet ID fallback failed — ' + e2);
+    return 'PO_WEBAPP_FALLBACK_SECRET_v1';
+  }
 }
 
 function _signToken_(username, role) {

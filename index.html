@@ -2206,9 +2206,14 @@
       } catch(e) {}
     }
 
+    // Module the user was on when the session expired; restored after re-login
+    // so an open form (e.g. an unsaved Note) stays visible and can be re-submitted.
+    var _sessionExpiredModule = null;
+
     // Triggered when the backend reports the token is missing/expired.
     // Clears local session and forces the login gate to reappear.
     function _handleAuthRequired() {
+      _sessionExpiredModule = STATE.activeModule || null;
       _setToken('');
       try { sessionStorage.removeItem(SESSION_KEY); } catch(e) {}
       STATE.currentUser = null;
@@ -2371,17 +2376,22 @@
           loadConfig(); _migratePinIfNeeded();
           fetchItemCodes(function () {});
           _syncColVisFromSheet();
+          // On session-expiry re-login, restore the module the user was on so that
+          // any open form (e.g. an unsaved Note) stays visible and can be re-submitted.
+          // Fresh first-login always starts on 'purchased'.
+          var _restoreModule = _sessionExpiredModule || 'purchased';
+          _sessionExpiredModule = null;
           // Non-admins: fetch tab-disabled config from server FIRST so disabled tabs
           // are enforced immediately — prevents bypass via incognito / fresh session.
           if (res.role !== 'admin') {
             _syncTabConfigFromSheet().then(function () {
-              switchModule('purchased');
+              switchModule(_restoreModule);
               startAutoRefresh();
               prefetchAllModules();
             });
           } else {
             _syncTabConfigFromSheet();
-            switchModule('purchased');
+            switchModule(_restoreModule);
             startAutoRefresh();
             prefetchAllModules();
           }
