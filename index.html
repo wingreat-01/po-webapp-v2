@@ -2268,9 +2268,11 @@
       var _isSilentRead = _GAS_READS[action];
       return promise.then(function(res) {
         if (res && res.authRequired && action !== 'login') {
-          if (_isSilentRead) {
-            // Background refresh: schedule a gentle reminder after a short delay
-            // instead of forcing immediate logout.
+          // Only suppress logout for background reads where we HAVE a token that might
+          // have just expired. If there's no token at all (e.g. cache was cleared),
+          // always force re-login immediately so the user isn't left in a broken state.
+          if (_isSilentRead && _getToken()) {
+            // Token exists but backend rejected it — gentle warning for auto-refresh reads.
             clearTimeout(_authWarnTimer);
             _authWarnTimer = setTimeout(function () {
               if (_getToken()) {
@@ -2928,6 +2930,11 @@
           m.loading = false;
           if (result && result.disabled) {
             showTabDisabledPage(moduleId);
+            return;
+          }
+          if (result && result.authRequired) {
+            // gasRun already showed the login gate; don't overwrite tableContainer with
+            // a misleading "tab doesn't exist" message.
             return;
           }
           if (result && result.error) {
