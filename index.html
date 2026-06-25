@@ -6531,8 +6531,21 @@
       const rowRef = m.rows.find(function (r) { return r.__rowIndex === rowIndex; });
       if (!rowRef) return;
       const snapshot = Object.assign({}, rowRef);
+
+      // Re-render while keeping the table scroll position so the user stays
+      // focused on the same area after an inline status change.
+      function _renderKeepScroll() {
+        if (STATE.activeModule !== moduleId) return;
+        var wrap = document.querySelector('.table-wrap');
+        var st = wrap ? wrap.scrollTop  : 0;
+        var sl = wrap ? wrap.scrollLeft : 0;
+        applyFiltersAndRender();
+        wrap = document.querySelector('.table-wrap');
+        if (wrap) { wrap.scrollTop = st; wrap.scrollLeft = sl; }
+      }
+
       rowRef[fieldName] = newValue;
-      if (STATE.activeModule === moduleId) applyFiltersAndRender();
+      _renderKeepScroll();
 
       const data = {};
       m.headers.forEach(function (h) {
@@ -6544,20 +6557,20 @@
           showToast('Status updated', 'success');
           if (newValue === 'Received' && moduleId !== 'received') {
             m.rows = m.rows.filter(function (r) { return r.__rowIndex !== rowIndex; });
-            if (STATE.activeModule === moduleId) applyFiltersAndRender();
+            _renderKeepScroll();
             prefetchModule('received');
           }
           saveCachedData(moduleId, m.headers, m.rows, m.sheetNameActual);
           markSynced();
         } else {
           Object.assign(rowRef, snapshot);
-          if (STATE.activeModule === moduleId) applyFiltersAndRender();
+          _renderKeepScroll();
           showToast('Failed: ' + (res && res.error ? res.error : 'unknown'), 'error');
         }
       };
       var _qOnFailure = function (err) {
         Object.assign(rowRef, snapshot);
-        if (STATE.activeModule === moduleId) applyFiltersAndRender();
+        _renderKeepScroll();
         showToast('Failed: ' + (err.message || err), 'error');
       };
       if (newValue === 'Received' && moduleId !== 'received') {
