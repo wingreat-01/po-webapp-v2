@@ -438,9 +438,6 @@
       .dlv-over     { background: rgba(248,81,73,0.15);  color: #f85149; border: 1px solid rgba(248,81,73,0.4);  }
       .dlv-auto-btn { margin-top: 6px; font-size: 11px; padding: 3px 10px; cursor: pointer; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); border-radius: 4px; font-family: inherit; }
       .dlv-auto-btn:hover { border-color: var(--accent); color: var(--accent); }
-      .delivery-divider td { font-size: 10px; color: var(--muted); text-align: center; padding: 5px 8px; letter-spacing: 0.05em; border-bottom: 1px dashed var(--border); }
-      .delivery-other td { color: var(--muted); }
-      .dlv-other-tag { display: inline-block; font-size: 10px; background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); padding: 0 5px; border-radius: 3px; margin-top: 2px; vertical-align: middle; }
 
       td.status-cell { cursor: pointer; }
       td.status-cell:hover .status-dot { transform: scale(1.4); }
@@ -5851,31 +5848,23 @@
       var incDateHdr  = _incDateRcvdHdr(incMod.headers);
       var incItemHdr  = _itemCodeHdr(incMod.headers);
 
-      // Collect ALL rows tagged to this PO; mark each as matched/unmatched by item code.
-      // Unmatched rows still appear in the panel (Option B) so the user can see everything
-      // they tagged, even when PO and incoming use different terminology for the same item.
       var deliveries = [];
       if (poId && incPoRefHdr && incMod.loaded) {
         var byPo = _incomingByPo();
         var subset = (byPo && byPo[poId.toLowerCase()]) || [];
         subset.forEach(function (r) {
-          var matched = true;
+          // When both sheets have an item code column, only count rows whose item code matches this PO line item
           if (poItemCode && incItemHdr) {
-            var incItemKey = _itemMatchKey(String(r[incItemHdr] || ''));
-            if (incItemKey && incItemKey !== poItemCode) matched = false;
+            var incItem = _itemMatchKey(String(r[incItemHdr] || ''));
+            if (incItem && incItem !== poItemCode) return;
           }
-          deliveries.push({ row: r, matched: matched });
+          deliveries.push(r);
         });
       }
 
-      var matchedOnly   = deliveries.filter(function(d) { return d.matched; });
-      var unmatchedOnly = deliveries.filter(function(d) { return !d.matched; });
-      // Status uses matched rows; if nothing matched exactly (no item col, or all differ),
-      // fall back to counting every tagged delivery so the panel is never empty.
-      var countSet = matchedOnly.length > 0 ? matchedOnly : deliveries;
       var totalReceived = 0;
-      countSet.forEach(function(d) {
-        totalReceived += incQtyHdr ? (parseFloat(String(d.row[incQtyHdr] || '').replace(/,/g, '')) || 0) : 0;
+      deliveries.forEach(function (r) {
+        totalReceived += incQtyHdr ? (parseFloat(String(r[incQtyHdr] || '').replace(/,/g, '')) || 0) : 0;
       });
 
       var remaining  = qtyOrdered - totalReceived;
@@ -5892,20 +5881,17 @@
       } else if (!incMod.loaded) {
         html += '<div class="delivery-no-data">Incoming Shipment data not loaded. Navigate to Incoming Shipment and back to refresh.</div>';
       } else if (deliveries.length === 0) {
-        html += '<div class="delivery-no-data">No deliveries tagged to PO <strong>' + escapeHtml(poId) + '</strong> yet.'
-          + ' Use the <strong>Tag</strong> button on Incoming Shipment rows to link them.</div>';
+        html += '<div class="delivery-no-data">No deliveries linked to this PO line item yet.'
+          + (poId ? ' Tag incoming shipment rows with <strong>PO REF = ' + escapeHtml(poId) + '</strong>' : '')
+          + (poItemRaw ? ' and <strong>Item Code = ' + escapeHtml(poItemRaw) + '</strong>' : '') + '.</div>';
       } else {
         html += '<table class="delivery-table"><thead><tr><th>#</th>';
         if (incShipHdr) html += '<th>Shipment</th>';
         if (incDateHdr) html += '<th>Date Received</th>';
         if (incQtyHdr)  html += '<th style="text-align:right">Qty Received</th>';
         html += '<th style="text-align:right">Running Total</th></tr></thead><tbody>';
-
-        // Primary rows (exact item-code match, or all rows when no item codes are in play)
-        var primaryRows = matchedOnly.length > 0 ? matchedOnly : deliveries;
         var running = 0;
-        primaryRows.forEach(function(d, i) {
-          var r = d.row;
+        deliveries.forEach(function (r, i) {
           var qty = incQtyHdr ? (parseFloat(String(r[incQtyHdr] || '').replace(/,/g, '')) || 0) : 0;
           running += qty;
           html += '<tr><td>' + (i + 1) + '</td>'
@@ -5914,26 +5900,6 @@
             + (incQtyHdr  ? '<td class="delivery-qty">' + qty.toLocaleString() + '</td>' : '')
             + '<td class="delivery-qty">' + running.toLocaleString() + '</td></tr>';
         });
-
-        // Unmatched rows: only shown when there are also matched rows above.
-        // Quantity is displayed but NOT counted in the running total or status.
-        if (matchedOnly.length > 0 && unmatchedOnly.length > 0) {
-          var colCount = 2 + (incShipHdr ? 1 : 0) + (incDateHdr ? 1 : 0) + (incQtyHdr ? 1 : 0);
-          html += '<tr class="delivery-divider"><td colspan="' + colCount + '">also tagged to PO ' + escapeHtml(poId) + '</td></tr>';
-          unmatchedOnly.forEach(function(d, i) {
-            var r = d.row;
-            var qty = incQtyHdr ? (parseFloat(String(r[incQtyHdr] || '').replace(/,/g, '')) || 0) : 0;
-            var itemLabel = incItemHdr ? String(r[incItemHdr] || '').trim() : '';
-            html += '<tr class="delivery-other"><td>' + (matchedOnly.length + i + 1) + '</td>'
-              + (incShipHdr ? '<td>' + escapeHtml(String(r[incShipHdr] || ''))
-                  + (itemLabel ? '<br><span class="dlv-other-tag">' + escapeHtml(itemLabel) + '</span>' : '')
-                  + '</td>' : '')
-              + (incDateHdr ? '<td>' + escapeHtml(String(r[incDateHdr] || '')) + '</td>' : '')
-              + (incQtyHdr  ? '<td class="delivery-qty">' + qty.toLocaleString() + '</td>' : '')
-              + '<td class="delivery-qty" style="color:var(--muted)">—</td></tr>';
-          });
-        }
-
         html += '</tbody></table>';
       }
 
@@ -5945,16 +5911,6 @@
           + '<span class="delivery-stat"><span class="ds-label">Remaining</span><strong' + (remaining < 0 ? ' style="color:var(--danger)"' : '') + '>' + remaining.toLocaleString() + '</strong></span>';
         if (autoStatus) html += '<span class="delivery-badge ' + bCls + '">' + escapeHtml(autoStatus) + '</span>';
         html += '</div>';
-        if (matchedOnly.length > 0 && unmatchedOnly.length > 0) {
-          var unmatchedQty = 0;
-          unmatchedOnly.forEach(function(d) {
-            unmatchedQty += incQtyHdr ? (parseFloat(String(d.row[incQtyHdr] || '').replace(/,/g, '')) || 0) : 0;
-          });
-          html += '<div class="delivery-no-data" style="margin-top:2px">'
-            + unmatchedOnly.length + ' other item' + (unmatchedOnly.length > 1 ? 's' : '')
-            + ' tagged to this PO (' + unmatchedQty.toLocaleString() + ' units) — not counted in received total above.'
-            + '</div>';
-        }
       }
 
       html += '</div>';
