@@ -6162,11 +6162,11 @@
         + '<div class="potag-listhead"><span>Apply to ' + candidates.length + ' shipment row' + (multi ? 's' : '') + ' of this item</span>'
         + (multi ? '<label class="potag-all"><input type="checkbox" id="potagAll" checked> Select all</label>' : '')
         + '</div>'
-        + ((hasRcvd || hasDate) ? ‘<div class="potag-hint">’
-            + (hasRcvd ? ‘Set the quantity received’ : ‘’)
-            + (hasRcvd && hasDate ? ‘ and ‘ : ‘’)
-            + (hasDate ? ‘date received’ : ‘’)
-            + ‘ for each row — quantity rolls up into the PO\’s received total.</div>’ : ‘’)
+        + ((hasRcvd || hasDate) ? '<div class="potag-hint">'
+            + (hasRcvd ? 'Set the quantity received' : '')
+            + (hasRcvd && hasDate ? ' and ' : '')
+            + (hasDate ? 'date received' : '')
+            + ' for each row — quantity rolls up into the PO\'s received total.</div>' : '')
         + '<div class="potag-list">' + listHtml + '</div>'
         + '</div>'
         + '<div class="modal-footer">'
