@@ -336,7 +336,7 @@
       .potag-all { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
       .potag-hint { font-size: 11px; color: var(--muted); margin: 0 0 6px; }
       .potag-list { max-height: 280px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; }
-      .potag-row { display: grid; grid-template-columns: 22px 1fr 116px auto; align-items: center;
+      .potag-row { display: grid; grid-template-columns: 22px 1fr 100px 112px auto; align-items: center;
         gap: 10px; padding: 7px 10px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13px; }
       .potag-row:last-child { border-bottom: none; }
       .potag-row:hover { background: var(--row-hover); }
@@ -346,6 +346,10 @@
         border: 1px solid var(--border); border-radius: 5px; font-size: 12px; font-family: inherit;
         text-align: right; outline: none; box-sizing: border-box; }
       .potag-qtyin:focus { border-color: var(--accent); }
+      .potag-datein { width: 100%; padding: 4px 5px; background: var(--panel-2); color: var(--text);
+        border: 1px solid var(--border); border-radius: 5px; font-size: 12px; font-family: inherit;
+        outline: none; box-sizing: border-box; }
+      .potag-datein:focus { border-color: var(--accent); }
       .potag-cur { color: var(--accent); font-size: 12px; font-weight: 600; }
       .potag-untag { color: var(--muted); font-weight: 400; font-style: italic; }
       thead th.spacer-col { cursor: default; }
@@ -6078,13 +6082,22 @@
         showToast('Add a "PO REF" column to the Incoming Shipment sheet first.', 'error');
         return;
       }
-      var itemHdr    = _itemCodeHdr(incMod.headers);
-      var shipHdr    = _incShipmentHdr(incMod.headers);
-      var shippedHdr = _findHdr(incMod.headers, ['QUANTITY', 'QTY']);
-      var qtyRcvdHdr = _incQtyRcvdHdr(incMod.headers);
-      var contHdr    = _findHdr(incMod.headers, ['CONTAINERNO', 'CONTAINERNUMBER', 'CONTAINERNUM', 'CONTAINER']);
+      var itemHdr     = _itemCodeHdr(incMod.headers);
+      var shipHdr     = _incShipmentHdr(incMod.headers);
+      var shippedHdr  = _findHdr(incMod.headers, ['QUANTITY', 'QTY']);
+      var qtyRcvdHdr  = _incQtyRcvdHdr(incMod.headers);
+      var dateRcvdHdr = _incDateRcvdHdr(incMod.headers);
+      var contHdr     = _findHdr(incMod.headers, ['CONTAINERNO', 'CONTAINERNUMBER', 'CONTAINERNUM', 'CONTAINER']);
       // The PO delivery rollup sums the QTY RECEIVED column, so we let the user set it here.
       var hasRcvd    = !!qtyRcvdHdr;
+      var hasDate    = !!dateRcvdHdr;
+      // Default date = today in YYYY-MM-DD format for the date input
+      var todayStr   = (function() {
+        var d = new Date();
+        return d.getFullYear() + '-'
+          + String(d.getMonth() + 1).padStart(2, '0') + '-'
+          + String(d.getDate()).padStart(2, '0');
+      })();
 
       var itemRaw   = itemHdr ? String(incRow[itemHdr] || '').trim() : '';
       var itemKey   = _itemMatchKey(itemRaw);
@@ -6111,13 +6124,28 @@
         var existingRcvd = qtyRcvdHdr ? String(r[qtyRcvdHdr] || '').trim() : '';
         var shipped      = shippedHdr ? String(r[shippedHdr] || '').trim() : '';
         var defaultRcvd  = existingRcvd || shipped; // assume full receipt unless changed
+        var existingDate = dateRcvdHdr ? String(r[dateRcvdHdr] || '').trim() : '';
+        // Normalise stored date to YYYY-MM-DD so <input type="date"> can read it
+        var dateVal = (function(s) {
+          if (!s) return todayStr;
+          // Already YYYY-MM-DD
+          if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+          // MM/DD/YYYY or M/D/YYYY
+          var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+          if (m) return m[3] + '-' + m[1].padStart(2,'0') + '-' + m[2].padStart(2,'0');
+          return todayStr;
+        })(existingDate);
         var qtyCell = hasRcvd
           ? '<input type="text" class="potag-qtyin" inputmode="numeric" data-ri="' + r.__rowIndex + '" value="' + escapeHtml(defaultRcvd) + '" title="Quantity received">'
           : '<span class="potag-qty">' + escapeHtml(shipped) + '</span>';
+        var dateCell = hasDate
+          ? '<input type="date" class="potag-datein" data-ri="' + r.__rowIndex + '" value="' + escapeHtml(dateVal) + '" title="Date received">'
+          : '<span></span>';
         return '<div class="potag-row" data-ri="' + r.__rowIndex + '">'
           + '<input type="checkbox" class="potag-cb" data-ri="' + r.__rowIndex + '"' + (isClicked ? ' checked' : '') + '>'
           + '<span class="potag-ship">' + (escapeHtml(ship) || '&mdash;') + (cont ? ' &middot; C' + escapeHtml(cont) : '') + '</span>'
           + qtyCell
+          + dateCell
           + '<span class="potag-cur">' + (po ? 'PO ' + escapeHtml(po) : '<span class="potag-untag">untagged</span>') + '</span>'
           + '</div>';
       }).join('');
@@ -6134,7 +6162,11 @@
         + '<div class="potag-listhead"><span>Apply to ' + candidates.length + ' shipment row' + (multi ? 's' : '') + ' of this item</span>'
         + (multi ? '<label class="potag-all"><input type="checkbox" id="potagAll" checked> Select all</label>' : '')
         + '</div>'
-        + (hasRcvd ? '<div class="potag-hint">Set the quantity received for each row — it rolls up into the PO’s received total.</div>' : '')
+        + ((hasRcvd || hasDate) ? ‘<div class="potag-hint">’
+            + (hasRcvd ? ‘Set the quantity received’ : ‘’)
+            + (hasRcvd && hasDate ? ‘ and ‘ : ‘’)
+            + (hasDate ? ‘date received’ : ‘’)
+            + ‘ for each row — quantity rolls up into the PO\’s received total.</div>’ : ‘’)
         + '<div class="potag-list">' + listHtml + '</div>'
         + '</div>'
         + '<div class="modal-footer">'
@@ -6154,18 +6186,27 @@
         $('modalMount').querySelectorAll('.potag-cb').forEach(function (cb) { cb.checked = allCb.checked; });
       });
 
-      // Clicking anywhere on a row toggles its checkbox (except the qty input / checkbox itself).
+      // Clicking anywhere on a row toggles its checkbox (except inputs / checkbox itself).
       $('modalMount').querySelectorAll('.potag-row').forEach(function (rowEl) {
         rowEl.addEventListener('click', function (e) {
-          if (e.target.classList.contains('potag-qtyin') || e.target.classList.contains('potag-cb')) return;
+          if (e.target.classList.contains('potag-qtyin') ||
+              e.target.classList.contains('potag-datein') ||
+              e.target.classList.contains('potag-cb')) return;
           var cb = rowEl.querySelector('.potag-cb');
           if (cb) cb.checked = !cb.checked;
         });
       });
-      // Typing a quantity auto-checks that row so it isn't accidentally left out.
+      // Typing a quantity or changing a date auto-checks that row.
       $('modalMount').querySelectorAll('.potag-qtyin').forEach(function (inp) {
         inp.addEventListener('click', function (e) { e.stopPropagation(); });
         inp.addEventListener('input', function () {
+          var cb = $('modalMount').querySelector('.potag-cb[data-ri="' + inp.dataset.ri + '"]');
+          if (cb && inp.value.trim()) cb.checked = true;
+        });
+      });
+      $('modalMount').querySelectorAll('.potag-datein').forEach(function (inp) {
+        inp.addEventListener('click', function (e) { e.stopPropagation(); });
+        inp.addEventListener('change', function () {
           var cb = $('modalMount').querySelector('.potag-cb[data-ri="' + inp.dataset.ri + '"]');
           if (cb && inp.value.trim()) cb.checked = true;
         });
@@ -6176,18 +6217,19 @@
         var updates = [];
         $('modalMount').querySelectorAll('.potag-cb:checked').forEach(function (cb) {
           var ri = parseInt(cb.dataset.ri, 10);
-          var qin = $('modalMount').querySelector('.potag-qtyin[data-ri="' + ri + '"]');
-          updates.push({ ri: ri, qty: qin ? String(qin.value).trim() : null });
+          var qin  = $('modalMount').querySelector('.potag-qtyin[data-ri="' + ri + '"]');
+          var din  = $('modalMount').querySelector('.potag-datein[data-ri="' + ri + '"]');
+          updates.push({ ri: ri, qty: qin ? String(qin.value).trim() : null, date: din ? String(din.value).trim() : null });
         });
         if (!updates.length) { showToast('Select at least one shipment row.', 'error'); return; }
         closeModal();
-        _bulkTagPoRef(updates, poRefHdr, qtyRcvdHdr, poVal);
+        _bulkTagPoRef(updates, poRefHdr, qtyRcvdHdr, dateRcvdHdr, poVal);
       });
     }
 
     // Writes the chosen PO Number into the PO REF column of every selected incoming row.
     // Optimistic in-memory update; silentRefresh reconciles with the sheet afterward.
-    function _bulkTagPoRef(updates, poRefHdr, qtyRcvdHdr, poNumber) {
+    function _bulkTagPoRef(updates, poRefHdr, qtyRcvdHdr, dateRcvdHdr, poNumber) {
       var moduleId = 'incoming';
       var m = STATE.modules.incoming;
       var tab = tabFor('incoming');
@@ -6195,7 +6237,7 @@
       var targets = [];
       updates.forEach(function (u) {
         var row = m.rows.find(function (r) { return r.__rowIndex === u.ri; });
-        if (row) targets.push({ row: row, qty: u.qty });
+        if (row) targets.push({ row: row, qty: u.qty, date: u.date });
       });
       if (!targets.length) return;
 
@@ -6203,6 +6245,9 @@
         t.row[poRefHdr] = poNumber;
         if (qtyRcvdHdr && t.qty !== null && t.qty !== undefined && t.qty !== '') {
           t.row[qtyRcvdHdr] = t.qty;
+        }
+        if (dateRcvdHdr && t.date !== null && t.date !== undefined && t.date !== '') {
+          t.row[dateRcvdHdr] = t.date;
         }
       });
       _invalidateIncomingIndex(); // PO refs changed in place — force the delivery index to rebuild
